@@ -531,7 +531,9 @@ with tab2:
                 st.markdown(f"**특징:** {row['특징']}")
                 st.markdown(f"**영업시간:** {row['영업시간']}")
             with c2:
-                st.markdown(f"<span class='badge {row[\"badge\"]}'>{row['태그']}</span>", unsafe_allow_html=True)
+                badge_cls = row["badge"]
+                badge_tag = row["태그"]
+                st.markdown(f"<span class='badge {badge_cls}'>{badge_tag}</span>", unsafe_allow_html=True)
                 st.metric("거리", row['거리'])
                 st.metric("평점", f"★ {row['평점']}")
 
