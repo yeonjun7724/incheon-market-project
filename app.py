@@ -444,7 +444,7 @@ ss=st.session_state
 # ══════════════════════════════════════════════════════════════
 def build_map():
     m=folium.Map(location=[ss["lat"],ss["lng"]],zoom_start=14,
-                 tiles="CartoDB dark_matter",prefer_canvas=True)
+                 tiles="CartoDB positron",prefer_canvas=True)
     Fullscreen(position="topright").add_to(m)
     LocateControl(auto_start=False,position="bottomright").add_to(m)
     Draw(position="topleft",
