@@ -13,6 +13,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import math
 from datetime import datetime
+from core.data_loader import load_stores, map_center
+from core.optimizer import optimize_basket, basket_summary
+from core.price_api import apply_live_prices
+from core import report_db
 
 st.set_page_config(
     page_title="LocalCart",
@@ -379,27 +383,18 @@ ITEMS_SEED = [
 ]
 ITEMS_DF = pd.DataFrame(ITEMS_SEED,
     columns=["code","name","category","unit","avg_price","market_price","supermarket_price","emoji"])
+# KAMIS 실시간 소매가 반영 (키 없으면 시드 유지)
+ITEMS_DF, PRICE_STATUS = apply_live_prices(ITEMS_DF)
 
-STORES_SEED = [
-    {"id":"S001","name":"광장시장",         "type":"전통시장",    "gu":"종로구",  "lat":37.5701,"lng":126.9993,"certified":True, "desc":"빈대떡·육회·마약김밥 유명"},
-    {"id":"S002","name":"마포농수산물시장",  "type":"전통시장",    "gu":"마포구",  "lat":37.5448,"lng":126.9475,"certified":True, "desc":"수산물 전문 도소매"},
-    {"id":"S003","name":"망원시장",          "type":"전통시장",    "gu":"마포구",  "lat":37.5560,"lng":126.9047,"certified":True, "desc":"SNS 감성 전통시장"},
-    {"id":"S004","name":"통인시장",          "type":"전통시장",    "gu":"종로구",  "lat":37.5787,"lng":126.9681,"certified":True, "desc":"도시락카페·기름떡볶이"},
-    {"id":"S005","name":"남대문시장",        "type":"전통시장",    "gu":"중구",    "lat":37.5590,"lng":126.9768,"certified":True, "desc":"대표 도소매 전통시장"},
-    {"id":"S006","name":"경동시장",          "type":"전통시장",    "gu":"동대문구","lat":37.5798,"lng":127.0436,"certified":True, "desc":"한약재·건어물·청과"},
-    {"id":"S007","name":"노량진수산시장",    "type":"전통시장",    "gu":"동작구",  "lat":37.5129,"lng":126.9428,"certified":True, "desc":"새벽 경매·직거래"},
-    {"id":"S008","name":"이대 착한가격식당", "type":"착한가격업소","gu":"서대문구","lat":37.5554,"lng":126.9458,"certified":True, "desc":"구청 인증"},
-    {"id":"S009","name":"은평 로컬푸드",     "type":"로컬푸드",    "gu":"은평구",  "lat":37.6022,"lng":126.9234,"certified":True, "desc":"경기 직매장"},
-    {"id":"S010","name":"성동 로컬푸드",     "type":"로컬푸드",    "gu":"성동구",  "lat":37.5471,"lng":127.0390,"certified":True, "desc":"도시농업 직거래"},
-    {"id":"S011","name":"합정 착한가격마트", "type":"착한가격업소","gu":"마포구",  "lat":37.5494,"lng":126.9147,"certified":True, "desc":"소상공인 인증"},
-    {"id":"S012","name":"청량리청과물시장",  "type":"전통시장",    "gu":"동대문구","lat":37.5891,"lng":127.0479,"certified":True, "desc":"과일·채소 도매"},
-]
-STORES_DF = pd.DataFrame(STORES_SEED)
+# 인천 점포 공공데이터 로드 (core/data_loader.py)
+STORES_DF = load_stores()
+INCHEON_CENTER = map_center(STORES_DF)   # 데이터 centroid → 지도 초기 중심
 
 STORE_STYLE = {
-    "전통시장":    {"icon":"🏪","fc":"blue",  "tag":"tag-market","rb":"rgba(99,183,255,.15)","rc":"#63b7ff"},
-    "착한가격업소":{"icon":"✅","fc":"green", "tag":"tag-kind",  "rb":"rgba(74,222,128,.15)","rc":"#4ade80"},
-    "로컬푸드":    {"icon":"🌿","fc":"orange","tag":"tag-local", "rb":"rgba(245,166,35,.15)","rc":"#f5a623"},
+    "전통시장":  {"icon":"🏪","fc":"blue",  "tag":"tag-market","rb":"rgba(99,183,255,.15)","rc":"#63b7ff"},
+    "골목상권":  {"icon":"🏘️","fc":"green", "tag":"tag-kind",  "rb":"rgba(74,222,128,.15)","rc":"#4ade80"},
+    "동네식품점":{"icon":"🥩","fc":"orange","tag":"tag-local", "rb":"rgba(245,166,35,.15)","rc":"#f5a623"},
+    "대형유통":  {"icon":"🏬","fc":"purple","tag":"",          "rb":"rgba(168,130,255,.12)","rc":"#a882ff"},
 }
 
 
@@ -420,45 +415,26 @@ def filter_stores(df,lat,lng,r):
 def score_stores(df):
     if df.empty: return df
     df=df.copy(); mx=df["distance_m"].max() or 1
-    tm={"로컬푸드":1.0,"착한가격업소":0.9,"전통시장":0.8,"일반":0.5}
+    tm={"전통시장":1.0,"골목상권":0.85,"동네식품점":0.75,"대형유통":0.4}
     df["score_dist"] =1-df["distance_m"]/mx
-    df["score_type"] =df["type"].map(tm).fillna(0.5)
-    df["score_local"]=df["type"].isin(["전통시장","착한가격업소","로컬푸드"]).astype(float)
+    df["score_type"] =df["type"].map(tm).fillna(0.4)
+    df["score_local"]=df["type"].isin(["전통시장","골목상권","동네식품점"]).astype(float)
     df["total_score"]=df["score_dist"]*.40+df["score_type"]*.35+df["score_local"]*.25
     return df.sort_values("total_score",ascending=False)
 
 def recommend_items(budget,household,pref,use_market):
-    df=ITEMS_DF.copy()
-    scale={1:1.0,2:1.6,3:2.3,4:3.0}.get(household,3.0)
-    pc="market_price" if use_market else "avg_price"
-    df["unit_price"]=(df[pc]*scale).astype(int)
-    W={"균형":{"단백질":1.2,"채소":1.2,"탄수화물":1.0,"과일":0.8,"양념":0.6,"가공식품":0.5},
-       "채소":{"채소":1.8,"단백질":0.8,"탄수화물":1.0,"과일":1.0,"양념":0.6,"가공식품":0.4},
-       "단백질":{"단백질":1.8,"채소":0.8,"탄수화물":0.8,"과일":0.6,"양념":0.5,"가공식품":0.5},
-       "저탄수화물":{"단백질":1.5,"채소":1.5,"탄수화물":0.3,"과일":0.8,"양념":0.5,"가공식품":0.4}}
-    w=W.get(pref,W["균형"])
-    df["pw"]=df["category"].map(w).fillna(0.6)
-    df["util"]=df["pw"]/(df["unit_price"]/1000+0.1)
-    df=df.sort_values("util",ascending=False)
-    sel,tot=[],0
-    for _,r in df.iterrows():
-        if tot+r["unit_price"]<=budget and len(sel)<10:
-            sel.append(r); tot+=r["unit_price"]
-    return pd.DataFrame(sel) if sel else pd.DataFrame()
+    # 선형계획법(LP) 기반 — core/optimizer.optimize_basket 위임
+    return optimize_basket(ITEMS_DF,budget,household,pref,use_market)
 
 
 # ══════════════════════════════════════════════════════════════
 # 세션
 # ══════════════════════════════════════════════════════════════
-for k,v in {"lat":37.5665,"lng":126.9780,"radius_m":3000,"budget":50000,
+for k,v in {"lat":INCHEON_CENTER[0],"lng":INCHEON_CENTER[1],"radius_m":3000,"budget":50000,
              "household":2,"pref":"균형","use_market":True,
              "active_panel":None,
              "result_stores":pd.DataFrame(),"result_items":pd.DataFrame(),
-             "user_reports":[
-                 {"lat":37.5701,"lng":126.9993,"item":"배추","price":3500,"store":"광장시장","date":"2026-05-14"},
-                 {"lat":37.5560,"lng":126.9047,"item":"계란","price":6800,"store":"망원시장","date":"2026-05-13"},
-                 {"lat":37.5448,"lng":126.9475,"item":"두부","price":1100,"store":"마포농수산물시장","date":"2026-05-12"},
-             ]}.items():
+             "user_reports":report_db.load_reports()}.items():
     if k not in st.session_state: st.session_state[k]=v
 ss=st.session_state
 
@@ -692,7 +668,7 @@ elif ss["active_panel"]=="cart":
                     '<div style="font-size:14px;font-weight:600">조건 설정 → 추천 실행 후 확인하세요</div>'
                     '</div>',unsafe_allow_html=True)
     else:
-        total=int(idf["unit_price"].sum()); budget=ss["budget"]
+        total=int(idf["line_total"].sum()); budget=ss["budget"]
         pct=min(total/budget*100,100); remain=budget-total
         bc2="#4ade80" if pct<85 else "#f5a623" if pct<=100 else "#ff6b6b"
         st.markdown(f"""
@@ -717,21 +693,23 @@ elif ss["active_panel"]=="cart":
         cards="<div class='items-grid'>"
         for _,row in idf.iterrows():
             cat=row["category"]
+            qty=row.get("qty",1)
+            qtxt=f"×{qty:g}" if qty and qty!=1 else ""
             cards+=(f"<div class='item-card'>"
                     f"<div class='item-emoji'>{row.get('emoji','🛒')}</div>"
                     f"<div class='item-info'>"
-                    f"<div class='item-name'>{row['name']}</div>"
+                    f"<div class='item-name'>{row['name']} <span style='color:var(--text-3);font-size:11px'>{qtxt}</span></div>"
                     f"<div class='item-unit'>{row['unit']}</div>"
                     f"<span class='item-cat cat-{cat}'>{cat}</span>"
                     f"</div>"
-                    f"<div class='item-price'>{int(row['unit_price']):,}원</div>"
+                    f"<div class='item-price'>{int(row.get('line_total',row['unit_price'])):,}원</div>"
                     f"</div>")
         cards+="</div>"
         st.markdown(cards,unsafe_allow_html=True)
         st.markdown('<div style="height:14px"></div>',unsafe_allow_html=True)
 
-        cs=idf.groupby("category")["unit_price"].sum().reset_index()
-        fig=px.pie(cs,values="unit_price",names="category",hole=0.58,
+        cs=idf.groupby("category")["line_total"].sum().reset_index()
+        fig=px.pie(cs,values="line_total",names="category",hole=0.58,
                    color_discrete_sequence=["#63b7ff","#4ade80","#f5a623","#fb7185","#a78bfa","#9ca3af"])
         fig.update_layout(paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",
                           font=dict(color="#8a9bb8",family="Pretendard"),height=190,
@@ -758,14 +736,14 @@ elif ss["active_panel"]=="stores":
                     '</div>',unsafe_allow_html=True)
     else:
         nm=len(sdf[sdf["type"]=="전통시장"])
-        nk=len(sdf[sdf["type"]=="착한가격업소"])
-        nl=len(sdf[sdf["type"]=="로컬푸드"])
+        nk=len(sdf[sdf["type"]=="골목상권"])
+        nl=len(sdf[sdf["type"]=="동네식품점"])
         nd=sdf.iloc[0]["distance_m"] if not sdf.empty else 0
         st.markdown(f"""
         <div class="stat-row">
           <div class="stat-cell"><span class="stat-val">{len(sdf)}</span><span class="stat-lbl">총 상점</span></div>
           <div class="stat-cell"><span class="stat-val" style="color:#63b7ff">{nm}</span><span class="stat-lbl">전통시장</span></div>
-          <div class="stat-cell"><span class="stat-val" style="color:#4ade80">{nk+nl}</span><span class="stat-lbl">착한/로컬</span></div>
+          <div class="stat-cell"><span class="stat-val" style="color:#4ade80">{nk+nl}</span><span class="stat-lbl">골목/식품점</span></div>
           <div class="stat-cell"><span class="stat-val" style="color:#f5a623">{nd:.0f}m</span><span class="stat-lbl">최단거리</span></div>
         </div>
         """,unsafe_allow_html=True)
@@ -796,8 +774,8 @@ elif ss["active_panel"]=="stores":
             fig2=px.scatter(sdf.head(8),x="distance_m",y="total_score",
                             color="type",text="name",
                             labels={"distance_m":"거리 (m)","total_score":"추천 점수"},
-                            color_discrete_map={"전통시장":"#63b7ff","착한가격업소":"#4ade80",
-                                                "로컬푸드":"#f5a623","일반":"#9ca3af"})
+                            color_discrete_map={"전통시장":"#63b7ff","골목상권":"#4ade80",
+                                                "동네식품점":"#f5a623","대형유통":"#a882ff"})
             fig2.update_traces(textposition="top center",textfont=dict(size=9,color="#8a9bb8"),marker=dict(size=10))
             fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)",
                                plot_bgcolor="rgba(255,255,255,0.02)",
@@ -838,16 +816,16 @@ elif ss["active_panel"]=="report":
         ninp=st.text_input("",placeholder="예: 오늘만 특가",key="rn")
 
     if st.button("📝  제보 등록하기",key="rsub",use_container_width=True):
-        ss["user_reports"].append({
-            "lat":ss["lat"]+np.random.uniform(-0.003,0.003),
-            "lng":ss["lng"]+np.random.uniform(-0.003,0.003),
-            "item":isel,"price":pinp,"store":sinp,"note":ninp,
-            "date":datetime.now().strftime("%Y-%m-%d")})
+        report_db.add_report(
+            item=isel, price=pinp, store=sinp,
+            lat=ss["lat"]+np.random.uniform(-0.003,0.003),
+            lng=ss["lng"]+np.random.uniform(-0.003,0.003))
+        ss["user_reports"]=report_db.load_reports()   # DB에서 재로드 (영속)
         st.success(f"✅ '{isel}' 가격 제보가 등록됐습니다!",icon="🎉")
         st.rerun()
 
     st.markdown('<span class="sec-label" style="margin-top:16px">최근 제보</span>',unsafe_allow_html=True)
-    PA={"배추":3800,"계란":7200,"두부":1500,"대파":2500,"양파":2200,"돼지앞다리":1500,"닭가슴살":1800}
+    PA=dict(zip(ITEMS_DF["name"],ITEMS_DF["avg_price"]))
     rh=""
     for rpt in reversed(ss["user_reports"][-6:]):
         avg=PA.get(rpt["item"]); diff=""
