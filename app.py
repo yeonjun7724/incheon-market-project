@@ -444,7 +444,12 @@ ss=st.session_state
 # ══════════════════════════════════════════════════════════════
 def build_map():
     m=folium.Map(location=[ss["lat"],ss["lng"]],zoom_start=14,
-                 tiles="CartoDB positron",prefer_canvas=True)
+                 tiles=None,prefer_canvas=True)
+    folium.TileLayer(
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+        attr="Esri",
+        name="Esri Topo",
+    ).add_to(m)
     Fullscreen(position="topright").add_to(m)
     LocateControl(auto_start=False,position="bottomright").add_to(m)
     Draw(position="topleft",
