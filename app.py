@@ -74,13 +74,14 @@ html, body {
 }
 
 /* ★ 핵심 — 위젯이 실제로 그려지는 컨테이너를 패널 위치에 고정
-   slide-panel(z-index:998) 위에(z-index:999) 렌더링 → 유리 배경 위에 인터랙티브 위젯 */
+   slide-panel(z-index:998) 위에(z-index:999) 렌더링 → 유리 배경 위에 인터랙티브 위젯
+   ※ transform 사용 금지 — 자식 iframe(지도)의 containing block이 바뀌어 지도가 깨짐
+      대신 left:max(14px, calc(50vw - 420px)) 으로 중앙 정렬 */
 [data-testid="block-container"],
 .block-container {
   position: fixed !important;
   bottom: 74px !important;
-  left: 50% !important;
-  transform: translateX(-50%) !important;
+  left: max(14px, calc(50vw - 420px)) !important;
   width: min(840px, calc(100vw - 28px)) !important;
   max-height: calc(100vh - 130px) !important;
   overflow-y: auto !important;
