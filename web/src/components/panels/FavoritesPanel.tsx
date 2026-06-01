@@ -12,6 +12,7 @@ export function FavoritesPanel() {
   const [stores, setStores] = useState<Store[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [addSel, setAddSel] = useState("");
+  const [openStore, setOpenStore] = useState<string | null>(null);   // 펼친 가게
 
   useEffect(() => {
     getStores(lat, lng, radiusM).then(setStores).catch(console.error);
@@ -21,6 +22,13 @@ export function FavoritesPanel() {
   const storeById = (id: string) => stores.find((s) => s.id === id);
   const itemMeta = (n: string) => items.find((i) => i.name === n);
   const addable = stores.filter((s) => !favStores.includes(s.id));
+
+  // 해당 가게에서 살 수 있는 품목 — 자주 사는 품목 먼저, 그 뒤 일반 품목 (최대 6개)
+  function storeItems(): Item[] {
+    const favFirst = favItems.map(itemMeta).filter(Boolean) as Item[];
+    const rest = items.filter((i) => !favItems.includes(i.name));
+    return [...favFirst, ...rest].slice(0, 6);
+  }
 
   async function routeFromFavItems() {
     const ings = favItems.length ? favItems : picked;
@@ -49,12 +57,33 @@ export function FavoritesPanel() {
           <div className="space-y-1.5">
             {favStores.map((id) => {
               const s = storeById(id);
+              const expanded = openStore === id;
               return (
-                <div key={id} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5">
-                  <span className="text-[#f5c84b]">★</span>
-                  <span className="flex-1 text-[13px] font-bold">{s?.name ?? id}</span>
-                  <span className="text-[11px] text-ink3">{s?.gu} · {s?.type}</span>
-                  <button onClick={() => toggleFavStore(id)} className="text-ink3 hover:text-red-400 text-xs">해제</button>
+                <div key={id} className="rounded-lg border border-white/10 bg-white/[0.03]">
+                  <button onClick={() => setOpenStore(expanded ? null : id)}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left">
+                    <span className="text-[#f5c84b]">★</span>
+                    <span className="flex-1 text-[13px] font-bold">{s?.name ?? id}</span>
+                    <span className="text-[11px] text-ink3">{s?.gu} · {s?.type}</span>
+                    <span className="text-ink2">{expanded ? "∧" : "∨"}</span>
+                  </button>
+                  {expanded && (
+                    <div className="border-t border-white/5 px-3 py-2">
+                      <p className="mb-1 text-[10px] text-ink3">취급 품목 (자주 사는 품목 우선)</p>
+                      {storeItems().map((it) => {
+                        const lo = Math.min(it.market_price, it.supermarket_price);
+                        const fav = favItems.includes(it.name);
+                        return (
+                          <div key={it.code} className="flex items-center gap-2 py-1 text-[13px]">
+                            <span>{it.emoji}</span>
+                            <span className="flex-1">{fav && <span className="text-[#f5c84b]">★ </span>}{it.name}</span>
+                            <span className="font-mono text-accent3">{lo.toLocaleString()}원</span>
+                          </div>
+                        );
+                      })}
+                      <button onClick={() => toggleFavStore(id)} className="mt-1 text-[11px] text-ink3 hover:text-red-400">해제</button>
+                    </div>
+                  )}
                 </div>
               );
             })}

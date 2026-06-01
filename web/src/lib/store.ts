@@ -9,6 +9,10 @@ interface AppState {
   setLoc: (lat: number, lng: number) => void;
   setRadius: (r: number) => void;
 
+  // 지도 스타일 (레이어 전환)
+  mapStyle: string;
+  toggleMapStyle: () => void;
+
   // 조건
   budget: number;
   household: number;
@@ -44,6 +48,13 @@ export const useApp = create<AppState>((set) => ({
   radiusM: 3000,
   setLoc: (lat, lng) => set({ lat, lng }),
   setRadius: (radiusM) => set({ radiusM }),
+
+  mapStyle: "mapbox://styles/mapbox/dark-v11",
+  toggleMapStyle: () => set((s) => ({
+    mapStyle: s.mapStyle.includes("dark")
+      ? "mapbox://styles/mapbox/light-v11"
+      : "mapbox://styles/mapbox/dark-v11",
+  })),
 
   budget: 50000,
   household: 2,

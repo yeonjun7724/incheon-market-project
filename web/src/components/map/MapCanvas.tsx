@@ -1,10 +1,14 @@
 "use client";
-import { useEffect, useState } from "react";
-import Map, { Marker, Source, Layer, type MapMouseEvent } from "react-map-gl/mapbox";
+import { useEffect, useMemo, useState } from "react";
+import Map, {
+  Marker, Source, Layer, type MapMouseEvent, type MapRef,
+} from "react-map-gl/mapbox";
+import type { MapLayerMouseEvent } from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useApp } from "@/lib/store";
 import { getStores } from "@/lib/api";
 import type { Store } from "@/lib/types";
+import { useRef } from "react";
 
 const TYPE_COLOR: Record<string, string> = {
   전통시장: "#63b7ff",
@@ -14,12 +18,23 @@ const TYPE_COLOR: Record<string, string> = {
 };
 
 export default function MapCanvas() {
-  const { lat, lng, radiusM, routePlans, routeChoice, setLoc } = useApp();
+  const { lat, lng, radiusM, routePlans, routeChoice, setLoc, mapStyle } = useApp();
   const [stores, setStores] = useState<Store[]>([]);
+  const mapRef = useRef<MapRef | null>(null);
 
   useEffect(() => {
     getStores(lat, lng, radiusM).then(setStores).catch(console.error);
   }, [lat, lng, radiusM]);
+
+  // 상점 → 클러스터용 GeoJSON
+  const geojson = useMemo(() => ({
+    type: "FeatureCollection" as const,
+    features: stores.map((s) => ({
+      type: "Feature" as const,
+      properties: { id: s.id, name: s.name, type: s.type, gu: s.gu },
+      geometry: { type: "Point" as const, coordinates: [s.lng, s.lat] },
+    })),
+  }), [stores]);
 
   const plan = routeChoice ? routePlans[routeChoice] : null;
   const routeGeo = plan && {
@@ -31,30 +46,93 @@ export default function MapCanvas() {
     properties: {},
   };
 
+  function handleClick(e: MapMouseEvent) {
+    const map = mapRef.current;
+    const feats = (e as unknown as MapLayerMouseEvent).features;
+    // 클러스터 클릭 → 확대
+    const cl = feats?.find((f) => f.layer?.id === "clusters");
+    if (cl && map) {
+      const clusterId = cl.properties?.cluster_id;
+      const src = map.getSource("stores") as mapboxgl.GeoJSONSource;
+      // @ts-expect-error mapbox typing
+      src.getClusterExpansionZoom(clusterId, (err: unknown, zoom: number) => {
+        if (err) return;
+        // @ts-expect-error geometry coords
+        map.easeTo({ center: cl.geometry.coordinates, zoom });
+      });
+      return;
+    }
+    // 그 외 빈 지도 클릭 → 내 위치(집) 이동
+    if (!feats?.length) setLoc(e.lngLat.lat, e.lngLat.lng);
+  }
+
   return (
     <Map
+      id="main"
+      ref={mapRef}
       mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
       initialViewState={{ longitude: lng, latitude: lat, zoom: 12 }}
-      mapStyle="mapbox://styles/mapbox/dark-v11"
+      mapStyle={mapStyle}
       style={{ position: "fixed", inset: 0, width: "100vw", height: "100vh" }}
-      onClick={(e: MapMouseEvent) => setLoc(e.lngLat.lat, e.lngLat.lng)}
+      interactiveLayerIds={["clusters", "unclustered"]}
+      onClick={handleClick}
     >
-      {/* 내 위치 */}
+      {/* 내 위치(집) */}
       <Marker longitude={lng} latitude={lat} anchor="center">
-        <div style={{ fontSize: 26 }}>📍</div>
+        <div style={{ fontSize: 26, filter: "drop-shadow(0 2px 3px rgba(0,0,0,.5))" }}>🏠</div>
       </Marker>
 
-      {/* 상점 마커 */}
-      {stores.map((s) => (
-        <Marker key={s.id} longitude={s.lng} latitude={s.lat} anchor="bottom">
-          <div title={`${s.name} · ${s.gu}`} style={{
-            width: 16, height: 16, borderRadius: "50% 50% 50% 0",
-            transform: "rotate(-45deg)",
-            background: TYPE_COLOR[s.type] ?? "#888",
-            border: "2px solid #fff", boxShadow: "0 2px 6px rgba(0,0,0,.5)",
-          }} />
-        </Marker>
-      ))}
+      {/* 상점 클러스터 */}
+      <Source
+        id="stores"
+        type="geojson"
+        data={geojson}
+        cluster
+        clusterMaxZoom={14}
+        clusterRadius={50}
+      >
+        <Layer
+          id="clusters"
+          type="circle"
+          filter={["has", "point_count"]}
+          paint={{
+            "circle-color": "#4ade80",
+            "circle-opacity": 0.9,
+            "circle-radius": ["step", ["get", "point_count"], 16, 5, 22, 10, 30],
+            "circle-stroke-width": 4,
+            "circle-stroke-color": "rgba(74,222,128,0.25)",
+          }}
+        />
+        <Layer
+          id="cluster-count"
+          type="symbol"
+          filter={["has", "point_count"]}
+          layout={{
+            "text-field": ["get", "point_count_abbreviated"],
+            "text-size": 13,
+            "text-font": ["DIN Offc Pro Bold", "Arial Unicode MS Bold"],
+          }}
+          paint={{ "text-color": "#04101f" }}
+        />
+        <Layer
+          id="unclustered"
+          type="circle"
+          filter={["!", ["has", "point_count"]]}
+          paint={{
+            "circle-color": [
+              "match", ["get", "type"],
+              "전통시장", "#63b7ff",
+              "골목상권", "#4ade80",
+              "동네식품점", "#f5a623",
+              "대형유통", "#a882ff",
+              "#888",
+            ],
+            "circle-radius": 7,
+            "circle-stroke-width": 2,
+            "circle-stroke-color": "#fff",
+          }}
+        />
+      </Source>
 
       {/* 추천 경로 */}
       {routeGeo && (

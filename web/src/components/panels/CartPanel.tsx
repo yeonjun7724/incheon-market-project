@@ -80,12 +80,12 @@ export function CartPanel() {
             {recipeIngs.map((x, i) => `${i + 1}. ${x}`).join("  ")}
             <div className="mt-1 text-ink3">담을 재료를 눌러 ON/OFF 하세요 ↓</div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
             {recipeIngs.map((ing) => {
               const on = picked.includes(ing); const m = meta(ing);
               return (
                 <button key={ing} onClick={() => togglePick(ing)}
-                  className={`rounded-full border px-3 py-1.5 text-[13px] transition ${on ? "border-accent3/50 bg-accent3/15 text-accent3" : "border-white/10 text-ink2"}`}>
+                  className={`shrink-0 rounded-full border px-3 py-1.5 text-[13px] transition ${on ? "border-accent3/50 bg-accent3/15 text-accent3" : "border-white/10 text-ink2"}`}>
                   {on ? "✓ " : "+ "}{m?.emoji ?? ""} {ing}
                 </button>
               );
