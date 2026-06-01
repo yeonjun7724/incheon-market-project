@@ -62,15 +62,39 @@ html, body {
   overflow: hidden !important;
 }
 
+/* 외부 래퍼 — 여백 제거 */
 [data-testid="stAppViewContainer"],
 [data-testid="stAppViewBlockContainer"],
-[data-testid="block-container"],
-.main, .block-container {
+.main {
   padding: 0 !important;
   margin: 0 !important;
   max-width: 100% !important;
   background: transparent !important;
   overflow: hidden !important;
+}
+
+/* ★ 핵심 — 위젯이 실제로 그려지는 컨테이너를 패널 위치에 고정
+   slide-panel(z-index:998) 위에(z-index:999) 렌더링 → 유리 배경 위에 인터랙티브 위젯 */
+[data-testid="block-container"],
+.block-container {
+  position: fixed !important;
+  bottom: 74px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: min(840px, calc(100vw - 28px)) !important;
+  max-height: calc(100vh - 130px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  z-index: 999 !important;
+  padding: 60px 20px 22px !important; /* 60px = 패널 헤더 높이 확보 */
+  background: transparent !important;
+  border-radius: 20px !important;
+  margin: 0 !important;
+}
+/* block-container 내부 래퍼 투명 처리 */
+[data-testid="block-container"] > div,
+[data-testid="stVerticalBlock"] {
+  background: transparent !important;
 }
 
 [data-testid="stSidebar"],
@@ -652,12 +676,8 @@ def build_map():
     folium.LayerControl(position="topright").add_to(m)
     return m
 
-map_out=st_folium(build_map(),width="100%",height=900,
-                   returned_objects=["last_clicked","all_drawings"],key="main_map")
-
-if map_out and map_out.get("last_clicked"):
-    c=map_out["last_clicked"]
-    ss["lat"]=c["lat"]; ss["lng"]=c["lng"]
+# ▼ 지도는 스크립트 맨 마지막에 렌더링 (DOM 순서 최후 → 위젯들 뒤에 그려져서 위젯 가리지 않음)
+# map_out = st_folium(...) → 파일 끝 참조
 
 
 # ══════════════════════════════════════════════════════════════
@@ -1224,3 +1244,16 @@ elif ss["active_panel"]=="report":
              f"</div>")
     st.markdown(rh,unsafe_allow_html=True)
     st.markdown("</div></div>",unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════
+# 지도 렌더링 — DOM 마지막 위치
+# 위젯(block-container z-index:999) 뒤에 그려지고,
+# 유리패널(z-index:998)·네비(z-index:1001)는 지도 위에 유지됨
+# ══════════════════════════════════════════════════════════════
+map_out=st_folium(build_map(),width="100%",height=900,
+                  returned_objects=["last_clicked","all_drawings"],key="main_map")
+
+if map_out and map_out.get("last_clicked"):
+    c=map_out["last_clicked"]
+    ss["lat"]=c["lat"]; ss["lng"]=c["lng"]
