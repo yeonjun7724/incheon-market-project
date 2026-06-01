@@ -663,76 +663,20 @@ if map_out and map_out.get("last_clicked"):
 # ══════════════════════════════════════════════════════════════
 # 고정 UI 레이어
 # ══════════════════════════════════════════════════════════════
-# 로고(장식) — 검색 컨테이너 왼쪽에 고정
 st.markdown("""
-<div class="logo-chip" style="position:fixed;top:16px;left:max(16px,calc(50% - 318px));z-index:1001">
-  <span style="font-size:19px">🛒</span>
-  <span class="lc-name">LocalCart</span>
+<div class="top-bar">
+  <div class="logo-chip">
+    <span style="font-size:19px">🛒</span>
+    <span class="lc-name">LocalCart</span>
+  </div>
+  <div class="search-pill">🔍&nbsp;&nbsp;동네, 시장, 품목 검색...</div>
 </div>
-""", unsafe_allow_html=True)
-
-# 실제 동작하는 검색바 (요리/품목/상점 검색)
-with st.container(key="topsearch_box"):
-    st.text_input("검색", key="topsearch", label_visibility="collapsed",
-                  placeholder="🔍  동네, 시장, 품목 검색…  (예: 찜닭 · 양파 · 망원시장)",
-                  on_change=_do_search)
-
-if ss["search_msg"]:
-    st.markdown(f"""
-    <div style="position:fixed;top:62px;left:50%;transform:translateX(-50%);z-index:1002;
-                background:var(--glass);backdrop-filter:blur(20px);border:1px solid var(--border-act);
-                color:var(--accent);font-size:12px;font-weight:600;padding:7px 16px;border-radius:20px;
-                box-shadow:var(--shadow-sm)">{ss['search_msg']}</div>
-    """, unsafe_allow_html=True)
-    ss["search_msg"]=None   # 한 번만 표시
-
-# 실제 동작하는 우측 툴바
-with st.container(key="righttools_box"):
-    if st.button("📍", key="tool_loc", help="내 동네로 이동 (실시간 GPS는 지도 좌하단 ◎)"):
-        ss["lat"],ss["lng"]=INCHEON_CENTER; ss["map_zoom"]=14; st.rerun()
-    if st.button("🗂", key="tool_layer", help="지도 스타일 전환 (밝게 ↔ 일반)"):
-        ss["map_tile"]="OpenStreetMap" if ss["map_tile"]=="CartoDB positron" else "CartoDB positron"; st.rerun()
-    if st.button("📌", key="tool_fav", help="자주 가는 가게 · 자주 사는 품목"):
-        ss["active_panel"]=None if ss["active_panel"]=="favorites" else "favorites"; st.rerun()
-    if st.button("⛶", key="tool_zoom", help="인천 전체 보기 ↔ 동네 보기"):
-        if ss["map_zoom"]>12:
-            ss["lat"],ss["lng"]=INCHEON_CENTER; ss["map_zoom"]=11
-        else:
-            ss["map_zoom"]=14
-        st.rerun()
-
-# 상단 검색바 + 우측 툴바 위치/스타일 (st-key 클래스 타게팅)
-st.markdown("""
-<style>
-.st-key-topsearch_box{
-  position:fixed !important;top:16px !important;left:50% !important;
-  transform:translateX(-50%) !important;z-index:1001 !important;
-  width:min(560px,calc(100vw - 130px)) !important;
-}
-.st-key-topsearch_box [data-testid="stTextInput"] input{
-  background:var(--glass) !important;backdrop-filter:blur(28px) saturate(180%) !important;
-  -webkit-backdrop-filter:blur(28px) saturate(180%) !important;
-  border:1px solid var(--border) !important;border-radius:40px !important;
-  padding:12px 20px !important;font-size:13px !important;
-  box-shadow:var(--shadow) !important;color:var(--text-1) !important;
-}
-.st-key-righttools_box{
-  position:fixed !important;top:50% !important;right:16px !important;
-  transform:translateY(-50%) !important;z-index:1001 !important;
-  width:46px !important;display:flex !important;flex-direction:column !important;gap:6px !important;
-}
-.st-key-righttools_box [data-testid="stVerticalBlock"]{gap:6px !important;}
-.st-key-righttools_box .stButton>button{
-  width:42px !important;height:42px !important;padding:0 !important;
-  background:var(--glass) !important;backdrop-filter:blur(24px) !important;
-  -webkit-backdrop-filter:blur(24px) !important;
-  border:1px solid var(--border) !important;border-radius:12px !important;
-  font-size:17px !important;box-shadow:var(--shadow-sm) !important;
-}
-.st-key-righttools_box .stButton>button:hover{
-  background:var(--glass-hover) !important;border-color:var(--border-act) !important;
-}
-</style>
+<div class="right-tools">
+  <div class="tool-btn" title="현위치 (지도 좌하단 ◎)">◎</div>
+  <div class="tool-btn" title="레이어">🗂</div>
+  <div class="tool-btn" title="자주 가는 가게 / 즐겨찾기 → ⭐ 탭">📌</div>
+  <div class="tool-btn" title="지도 크게 보기 (좌상단 ⛶)">⛶</div>
+</div>
 """, unsafe_allow_html=True)
 
 
@@ -757,39 +701,44 @@ st.markdown(f"""
   <div style="padding:7px 14px;border-radius:30px;font-size:13px;font-weight:600;color:{'#63b7ff' if ac('report') else '#8a9bb8'}">
     📝 제보 <span style="background:rgba(245,166,35,.2);color:#f5a623;border-radius:8px;padding:1px 6px;font-size:11px">{nr}</span>
   </div>
+  <div style="padding:7px 14px;border-radius:30px;font-size:13px;font-weight:600;color:{'#63b7ff' if ac('favorites') else '#8a9bb8'}">
+    ⭐ 즐겨찾기
+  </div>
 </div>
 """, unsafe_allow_html=True)
 
 # 실제 클릭 처리 버튼 (z-index로 바텀 네비 위에 겹침)
-# ※ st-key로 스코프 한정 — 패널 내부 st.columns 들은 영향받지 않음
 st.markdown("""
 <style>
-.st-key-bottomnav_box{
+div[data-testid="stHorizontalBlock"] {
   position:fixed !important; bottom:20px !important; left:50% !important;
   transform:translateX(-50%) !important;
   z-index:1001 !important; width:min(840px,calc(100vw - 28px)) !important;
+  gap:0 !important; background:transparent !important;
 }
-.st-key-bottomnav_box [data-testid="stHorizontalBlock"]{ gap:0 !important; background:transparent !important; }
-.st-key-bottomnav_box .stButton>button{
-  opacity:0 !important; height:46px !important; border-radius:30px !important;
+div[data-testid="stHorizontalBlock"] .stButton>button {
+  opacity:0 !important; height:46px !important;
+  border-radius:30px !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-with st.container(key="bottomnav_box"):
-    bc=st.columns(4)
-    with bc[0]:
-        if st.button("⚙️ 조건설정", key="bn_search"):
-            ss["active_panel"]=None if ss["active_panel"]=="search" else "search"; st.rerun()
-    with bc[1]:
-        if st.button("🛍️ 장바구니", key="bn_cart"):
-            ss["active_panel"]=None if ss["active_panel"]=="cart" else "cart"; st.rerun()
-    with bc[2]:
-        if st.button("🏪 추천상점", key="bn_stores"):
-            ss["active_panel"]=None if ss["active_panel"]=="stores" else "stores"; st.rerun()
-    with bc[3]:
-        if st.button("📝 제보", key="bn_report"):
-            ss["active_panel"]=None if ss["active_panel"]=="report" else "report"; st.rerun()
+bc=st.columns(5)
+with bc[0]:
+    if st.button("⚙️ 조건설정", key="bn_search"):
+        ss["active_panel"]=None if ss["active_panel"]=="search" else "search"; st.rerun()
+with bc[1]:
+    if st.button("🛍️ 장바구니", key="bn_cart"):
+        ss["active_panel"]=None if ss["active_panel"]=="cart" else "cart"; st.rerun()
+with bc[2]:
+    if st.button("🏪 추천상점", key="bn_stores"):
+        ss["active_panel"]=None if ss["active_panel"]=="stores" else "stores"; st.rerun()
+with bc[3]:
+    if st.button("📝 제보", key="bn_report"):
+        ss["active_panel"]=None if ss["active_panel"]=="report" else "report"; st.rerun()
+with bc[4]:
+    if st.button("⭐ 즐겨찾기", key="bn_fav"):
+        ss["active_panel"]=None if ss["active_panel"]=="favorites" else "favorites"; st.rerun()
 
 
 # ══════════════════════════════════════════════════════════════
@@ -801,6 +750,17 @@ if ss["active_panel"]=="search":
     st.markdown('<div class="slide-panel"><div class="panel-drag"></div>'
                 '<div class="panel-header"><div class="panel-title">⚙️ 장보기 조건 설정</div></div>'
                 '<div class="panel-body">', unsafe_allow_html=True)
+
+    # ── 검색 (요리·품목·상점 검색) ─────────────────────────────
+    st.markdown('<span class="sec-label">🔍 검색</span>', unsafe_allow_html=True)
+    st.text_input("검색", key="topsearch", label_visibility="collapsed",
+                  placeholder="요리·품목·상점 검색  (예: 찜닭, 양파, 망원시장)",
+                  on_change=_do_search)
+    if ss.get("search_msg"):
+        st.markdown(f'<div class="sec-hint" style="color:var(--accent);margin-bottom:6px">{ss["search_msg"]}</div>',
+                    unsafe_allow_html=True)
+        ss["search_msg"]=None
+    st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
 
     c1,c2=st.columns(2)
     with c1:
@@ -1146,12 +1106,10 @@ elif ss["active_panel"]=="favorites":
     addable=[r for _,r in cand.head(40).iterrows() if r["id"] not in ss["fav_stores"]]
     if addable:
         opt_map={f'{STORE_STYLE.get(r["type"],{}).get("icon","🏬")} {r["name"]} · {r["gu"]}':r["id"] for r in addable}
-        sc1,sc2=st.columns([4,1])
-        with sc1:
-            pick_lbl=st.selectbox("가게 추가",["선택…"]+list(opt_map.keys()),
-                                  key="favstore_add",label_visibility="collapsed",index=0)
-        with sc2:
-            if st.button("등록",key="favstore_addbtn") and pick_lbl!="선택…":
+        pick_lbl=st.selectbox("가게 추가",["선택…"]+list(opt_map.keys()),
+                              key="favstore_add",label_visibility="collapsed",index=0)
+        if st.button("📌 자주 가는 가게로 등록",key="favstore_addbtn",use_container_width=True):
+            if pick_lbl!="선택…":
                 toggle_fav_store(opt_map[pick_lbl]); st.rerun()
 
     if not ss["fav_stores"]:
