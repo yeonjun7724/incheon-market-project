@@ -23,7 +23,7 @@ st.set_page_config(
     page_title="LocalCart",
     page_icon="🛒",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 # ══════════════════════════════════════════════════════════════
@@ -62,10 +62,12 @@ html, body {
   overflow: hidden !important;
 }
 
-/* 외부 래퍼 — 여백 제거 */
+/* 외부 래퍼 + 메인 컨텐츠(지도만 들어감) — 여백 제거 */
 [data-testid="stAppViewContainer"],
 [data-testid="stAppViewBlockContainer"],
-.main {
+[data-testid="stMainBlockContainer"],
+[data-testid="block-container"],
+.main, .block-container {
   padding: 0 !important;
   margin: 0 !important;
   max-width: 100% !important;
@@ -73,32 +75,24 @@ html, body {
   overflow: hidden !important;
 }
 
-/* ★ 핵심 — 위젯이 실제로 그려지는 컨테이너를 패널 위치에 고정
-   slide-panel(z-index:998) 위에(z-index:999) 렌더링 → 유리 배경 위에 인터랙티브 위젯
-   ※ transform 사용 금지 — 자식 iframe(지도)의 containing block이 바뀌어 지도가 깨짐
-      대신 left:max(14px, calc(50vw - 420px)) 으로 중앙 정렬 */
-[data-testid="block-container"],
-.block-container {
-  position: fixed !important;
-  bottom: 74px !important;
-  left: max(14px, calc(50vw - 420px)) !important;
-  width: min(840px, calc(100vw - 28px)) !important;
-  max-height: calc(100vh - 130px) !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  z-index: 999 !important;
-  padding: 60px 20px 22px !important; /* 60px = 패널 헤더 높이 확보 */
-  background: transparent !important;
-  border-radius: 20px !important;
-  margin: 0 !important;
+/* ── 사이드바 = 글래스 컨트롤 패널 (모든 위젯이 여기서 네이티브 렌더링) ── */
+[data-testid="stSidebar"] {
+  background: var(--glass) !important;
+  backdrop-filter: blur(40px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(200%) !important;
+  border-right: 1px solid var(--border) !important;
+  box-shadow: var(--shadow) !important;
+  z-index: 100 !important;
+  width: 392px !important; min-width: 392px !important;
 }
-/* block-container 내부 래퍼 투명 처리 */
-[data-testid="block-container"] > div,
-[data-testid="stVerticalBlock"] {
-  background: transparent !important;
-}
+[data-testid="stSidebar"] > div { background: transparent !important; }
+[data-testid="stSidebarContent"],
+[data-testid="stSidebarUserContent"] { background: transparent !important; padding-top: 0 !important; }
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] { background: transparent !important; }
+[data-testid="stSidebarContent"] { padding: 14px 16px 24px !important; }
+[data-testid="stSidebarCollapseButton"] button,
+[data-testid="stBaseButton-headerNoPadding"] { color: var(--text-2) !important; }
 
-[data-testid="stSidebar"],
 [data-testid="collapsedControl"],
 header[data-testid="stHeader"],
 footer { display: none !important; }
@@ -188,36 +182,28 @@ footer { display: none !important; }
   pointer-events: all;
 }
 
-/* 슬라이드업 패널 */
+/* 슬라이드업 패널 → 사이드바 안에서는 그냥 패스스루 래퍼 (positioning 제거) */
 .slide-panel {
-  position: fixed;
-  bottom: 74px; left: 50%;
-  transform: translateX(-50%);
-  width: min(840px, calc(100vw - 28px));
-  max-height: calc(100vh - 130px);
-  z-index: 998;
-  background: var(--glass);
-  backdrop-filter: blur(36px) saturate(220%);
-  -webkit-backdrop-filter: blur(36px) saturate(220%);
-  border: 1px solid var(--border);
-  border-top: 1px solid rgba(255,255,255,0.12);
-  border-radius: 20px;
-  box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,0.05);
-  overflow: hidden; display: flex; flex-direction: column;
-  animation: panelUp 0.25s cubic-bezier(0.22,1,0.36,1);
+  position: static !important;
+  transform: none !important;
+  width: auto !important;
+  max-height: none !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  animation: none !important;
+  display: block !important;
+  overflow: visible !important;
 }
-@keyframes panelUp {
-  from { opacity:0; transform:translateX(-50%) translateY(20px); }
-  to   { opacity:1; transform:translateX(-50%) translateY(0); }
-}
-.panel-drag { width:36px;height:4px;background:rgba(255,255,255,0.12);border-radius:2px;margin:10px auto 0; }
+.panel-drag { display:none !important; }
 .panel-header {
   display:flex;align-items:center;justify-content:space-between;
-  padding:12px 20px 11px;
-  border-bottom:1px solid var(--border);flex-shrink:0;
+  padding:0 0 12px;
+  border-bottom:1px solid var(--border);margin-bottom:14px;
 }
-.panel-title { font-size:15px;font-weight:700;color:var(--text-1);display:flex;align-items:center;gap:8px; }
-.panel-body  { flex:1;overflow-y:auto;padding:16px 20px 22px; }
+.panel-title { font-size:16px;font-weight:800;color:var(--text-1);display:flex;align-items:center;gap:8px; }
+.panel-body  { padding:0 !important;overflow:visible !important; }
 
 /* 카드/컴포넌트 */
 .gauge-wrap {
@@ -682,575 +668,526 @@ def build_map():
 
 
 # ══════════════════════════════════════════════════════════════
-# 고정 UI 레이어
-# ══════════════════════════════════════════════════════════════
-st.markdown("""
-<div class="top-bar">
-  <div class="logo-chip">
-    <span style="font-size:19px">🛒</span>
-    <span class="lc-name">LocalCart</span>
-  </div>
-  <div class="search-pill">🔍&nbsp;&nbsp;동네, 시장, 품목 검색...</div>
-</div>
-<div class="right-tools">
-  <div class="tool-btn" title="현위치 (지도 좌하단 ◎)">◎</div>
-  <div class="tool-btn" title="레이어">🗂</div>
-  <div class="tool-btn" title="자주 가는 가게 / 즐겨찾기 → ⭐ 탭">📌</div>
-  <div class="tool-btn" title="지도 크게 보기 (좌상단 ⛶)">⛶</div>
-</div>
-""", unsafe_allow_html=True)
-
-
-# ══════════════════════════════════════════════════════════════
-# 하단 네비 버튼 (Streamlit 버튼 → invisible, HTML은 시각용)
+# 사이드바 — 로고 / 검색 / 네비 (모든 컨트롤이 여기서 네이티브 렌더링)
 # ══════════════════════════════════════════════════════════════
 ni=len(ss["result_items"]); ns=len(ss["result_stores"]); nr=len(ss["user_reports"])
 
-# 시각용 바텀 네비
-def ac(k): return "active" if ss["active_panel"]==k else ""
-st.markdown(f"""
-<div class="bottom-nav">
-  <div style="padding:7px 14px;border-radius:30px;font-size:13px;font-weight:600;color:{'#63b7ff' if ac('search') else '#8a9bb8'}">
-    ⚙️ 조건설정
-  </div>
-  <div style="padding:7px 14px;border-radius:30px;font-size:13px;font-weight:600;color:{'#63b7ff' if ac('cart') else '#8a9bb8'}">
-    🛍️ 장바구니{f' <span style="background:rgba(99,183,255,.2);color:#63b7ff;border-radius:8px;padding:1px 6px;font-size:11px">{ni}</span>' if ni else ''}
-  </div>
-  <div style="padding:7px 14px;border-radius:30px;font-size:13px;font-weight:600;color:{'#63b7ff' if ac('stores') else '#8a9bb8'}">
-    🏪 추천상점{f' <span style="background:rgba(74,222,128,.2);color:#4ade80;border-radius:8px;padding:1px 6px;font-size:11px">{ns}</span>' if ns else ''}
-  </div>
-  <div style="padding:7px 14px;border-radius:30px;font-size:13px;font-weight:600;color:{'#63b7ff' if ac('report') else '#8a9bb8'}">
-    📝 제보 <span style="background:rgba(245,166,35,.2);color:#f5a623;border-radius:8px;padding:1px 6px;font-size:11px">{nr}</span>
-  </div>
-  <div style="padding:7px 14px;border-radius:30px;font-size:13px;font-weight:600;color:{'#63b7ff' if ac('favorites') else '#8a9bb8'}">
-    ⭐ 즐겨찾기
-  </div>
-</div>
-""", unsafe_allow_html=True)
+with st.sidebar:
+    st.markdown("""
+    <div style="display:flex;align-items:center;gap:9px;padding:4px 2px 14px">
+      <span style="font-size:23px">🛒</span>
+      <span style="font-size:19px;font-weight:800;color:var(--accent);letter-spacing:-.5px">LocalCart</span>
+      <span style="margin-left:auto;font-size:10px;color:var(--text-3)">인천 동네장보기</span>
+    </div>
+    """, unsafe_allow_html=True)
 
-# 실제 클릭 처리 버튼 (z-index로 바텀 네비 위에 겹침)
-st.markdown("""
-<style>
-div[data-testid="stHorizontalBlock"] {
-  position:fixed !important; bottom:20px !important; left:50% !important;
-  transform:translateX(-50%) !important;
-  z-index:1001 !important; width:min(840px,calc(100vw - 28px)) !important;
-  gap:0 !important; background:transparent !important;
-}
-div[data-testid="stHorizontalBlock"] .stButton>button {
-  opacity:0 !important; height:46px !important;
-  border-radius:30px !important;
-}
-</style>
-""", unsafe_allow_html=True)
+    # 검색 (요리·품목·상점)
+    st.text_input("검색", key="topsearch", label_visibility="collapsed",
+                  placeholder="🔍  요리·품목·상점 검색 (예: 찜닭, 양파)",
+                  on_change=_do_search)
+    if ss.get("search_msg"):
+        st.markdown(f'<div class="sec-hint" style="color:var(--accent)">{ss["search_msg"]}</div>',
+                    unsafe_allow_html=True)
+        ss["search_msg"]=None
 
-bc=st.columns(5)
-with bc[0]:
-    if st.button("⚙️ 조건설정", key="bn_search"):
-        ss["active_panel"]=None if ss["active_panel"]=="search" else "search"; st.rerun()
-with bc[1]:
-    if st.button("🛍️ 장바구니", key="bn_cart"):
-        ss["active_panel"]=None if ss["active_panel"]=="cart" else "cart"; st.rerun()
-with bc[2]:
-    if st.button("🏪 추천상점", key="bn_stores"):
-        ss["active_panel"]=None if ss["active_panel"]=="stores" else "stores"; st.rerun()
-with bc[3]:
-    if st.button("📝 제보", key="bn_report"):
-        ss["active_panel"]=None if ss["active_panel"]=="report" else "report"; st.rerun()
-with bc[4]:
-    if st.button("⭐ 즐겨찾기", key="bn_fav"):
-        ss["active_panel"]=None if ss["active_panel"]=="favorites" else "favorites"; st.rerun()
+    st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+
+    # 네비게이션 버튼 (활성 탭은 primary 강조)
+    NAV=[("🗺️ 지도 보기",None),("⚙️ 조건설정","search"),("🛍️ 장바구니","cart"),
+         ("🏪 추천상점","stores"),("📝 제보","report"),("⭐ 즐겨찾기","favorites")]
+    badge={"cart":ni,"stores":ns,"report":nr}
+    nrow=st.columns(2)
+    for i,(lbl,key) in enumerate(NAV):
+        b=badge.get(key,0)
+        show=f"{lbl} ({b})" if b else lbl
+        with nrow[i%2]:
+            if st.button(show,key=f"nav_{key}",use_container_width=True,
+                         type=("primary" if ss["active_panel"]==key else "secondary")):
+                ss["active_panel"]=key if key else None
+                st.rerun()
+
+    st.markdown('<div style="height:4px;border-bottom:1px solid var(--border);margin-bottom:12px"></div>',
+                unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════
-# 슬라이드업 패널
+# 사이드바 패널 컨텐츠 (active_panel에 따라)
 # ══════════════════════════════════════════════════════════════
 
 # ── 조건 설정 ────────────────────────────────────────────────
-if ss["active_panel"]=="search":
-    st.markdown('<div class="slide-panel"><div class="panel-drag"></div>'
-                '<div class="panel-header"><div class="panel-title">⚙️ 장보기 조건 설정</div></div>'
-                '<div class="panel-body">', unsafe_allow_html=True)
+with st.sidebar:
+    if ss["active_panel"]=="search":
+        st.markdown('<div class="slide-panel"><div class="panel-drag"></div>'
+                    '<div class="panel-header"><div class="panel-title">⚙️ 장보기 조건 설정</div></div>'
+                    '<div class="panel-body">', unsafe_allow_html=True)
 
-    # ── 검색 (요리·품목·상점 검색) ─────────────────────────────
-    st.markdown('<span class="sec-label">🔍 검색</span>', unsafe_allow_html=True)
-    st.text_input("검색", key="topsearch", label_visibility="collapsed",
-                  placeholder="요리·품목·상점 검색  (예: 찜닭, 양파, 망원시장)",
-                  on_change=_do_search)
-    if ss.get("search_msg"):
-        st.markdown(f'<div class="sec-hint" style="color:var(--accent);margin-bottom:6px">{ss["search_msg"]}</div>',
-                    unsafe_allow_html=True)
-        ss["search_msg"]=None
-    st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
-
-    c1,c2=st.columns(2)
-    with c1:
-        st.markdown('<span class="sec-label">탐색 반경</span>',unsafe_allow_html=True)
-        rc=st.columns(5)
-        for i,(lbl,val) in enumerate({"500m":500,"1km":1000,"2km":2000,"3km":3000,"5km":5000}.items()):
-            with rc[i]:
-                if st.button(lbl,key=f"r{val}"): ss["radius_m"]=val; st.rerun()
-        st.markdown('<span class="sec-label" style="margin-top:14px">예산</span>',unsafe_allow_html=True)
-        ss["budget"]=st.slider("예산",10000,200000,ss["budget"],5000,format="%d원",key="bslider",label_visibility="collapsed")
-        st.markdown(f'<div style="font-size:22px;font-weight:700;color:#f5a623;'
-                    f'font-family:\'DM Mono\',monospace;margin-top:-4px">{ss["budget"]:,}원</div>',
-                    unsafe_allow_html=True)
-    with c2:
-        st.markdown('<span class="sec-label">가구 구성</span>',unsafe_allow_html=True)
-        hc=st.columns(4)
-        for i,n in enumerate([1,2,3,4]):
-            with hc[i]:
-                lbl2=f"✓ {n}인" if ss["household"]==n else f"{n}인"
-                if st.button(lbl2,key=f"h{n}"): ss["household"]=n; st.rerun()
-        st.markdown('<span class="sec-label" style="margin-top:14px">식단 선호</span>',unsafe_allow_html=True)
-        pc=st.columns(4)
-        for i,p in enumerate(["균형","채소","단백질","저탄수화물"]):
-            with pc[i]:
-                lbl3=f"✓ {p}" if ss["pref"]==p else p
-                if st.button(lbl3,key=f"p{p}"): ss["pref"]=p; st.rerun()
-        st.markdown('<div style="margin-top:14px"></div>',unsafe_allow_html=True)
-        mk=f"{'✅' if ss['use_market'] else '☐'} 전통시장 가격 기준 적용"
-        if st.button(mk,key="tmk"): ss["use_market"]=not ss["use_market"]; st.rerun()
-
-    st.markdown(f"""
-    <div class="summary-strip">
-      <div class="summary-item">
-        <span class="summary-label">예산</span>
-        <span class="summary-val" style="color:#f5a623">{ss['budget']:,}원</span>
-      </div>
-      <div class="summary-item">
-        <span class="summary-label">가구</span>
-        <span class="summary-val" style="color:#63b7ff">{ss['household']}인</span>
-      </div>
-      <div class="summary-item">
-        <span class="summary-label">식단</span>
-        <span class="summary-val" style="color:#4ade80">{ss['pref']}</span>
-      </div>
-      <div class="summary-item">
-        <span class="summary-label">반경</span>
-        <span class="summary-val" style="color:#a78bfa">{ss['radius_m']:,}m</span>
-      </div>
-      <div class="summary-item">
-        <span class="summary-label">가격</span>
-        <span class="summary-val" style="color:#fb7185">{"시장가" if ss["use_market"] else "평균가"}</span>
-      </div>
-      <div class="summary-item">
-        <span class="summary-label">위치</span>
-        <span class="summary-val" style="color:#9ca3af;font-size:12px">{ss['lat']:.4f}, {ss['lng']:.4f}</span>
-      </div>
-    </div>
-    """,unsafe_allow_html=True)
-
-    st.markdown('<div class="stButton run-btn">',unsafe_allow_html=True)
-    if st.button("🔍  이 조건으로 장보기 시작",key="run",use_container_width=True):
-        with st.spinner("주변 점포 분석 중..."):
-            f=filter_stores(STORES_DF,ss["lat"],ss["lng"],ss["radius_m"])
-            ss["result_stores"]=score_stores(f)
-            ss["result_items"]=recommend_items(ss["budget"],ss["household"],ss["pref"],ss["use_market"])
-            ss["route_plan"]={}; ss["route_choice"]=None; ss["guiding"]=False
-            ss["active_panel"]="cart"
-        st.rerun()
-    st.markdown('</div>',unsafe_allow_html=True)
-
-    st.markdown("</div></div>",unsafe_allow_html=True)
-
-
-# ── 장바구니 (AI 에이전트 + 재료 담기 + 최저가~최고가) ──────────
-elif ss["active_panel"]=="cart":
-    st.markdown('<div class="slide-panel"><div class="panel-drag"></div>'
-                '<div class="panel-header"><div class="panel-title">🛍️ 장바구니 · AI 에이전트</div></div>'
-                '<div class="panel-body">',unsafe_allow_html=True)
-
-    nb=_nearby_stores()   # 가격범위 산출용 후보 점포
-
-    # ① 자주 사는 품목 (img3 — 자주 사는 품목 내역 페이지) ─────────
-    if ss["fav_items"]:
-        st.markdown('<span class="sec-label">⭐ 자주 사는 품목</span>',unsafe_allow_html=True)
-        fr=""
-        for nm in ss["fav_items"]:
-            m=rcp.item_meta(nm,ITEMS_DF)
-            if not m: continue
-            lo,hi=rcp.price_range(m,nb)
-            cs,cp=rcp.cheapest_store(m,nb)
-            cs_nm=cs["name"] if cs is not None else "주변 점포 없음"
-            cp_txt=f"최저 {cp:,}원" if cp is not None else f"평균 {m['avg']:,}원"
-            fr+=(f"<div class='freq-row'><span style='font-size:18px'>{m['emoji']}</span>"
-                 f"<span class='freq-nm'>{nm}</span>"
-                 f"<span class='freq-meta'>{cp_txt}<br><span style='color:var(--accent3)'>{cs_nm}</span></span></div>")
-        st.markdown(fr,unsafe_allow_html=True)
-        st.markdown('<div style="height:10px"></div>',unsafe_allow_html=True)
-
-    # ② AI 에이전트 — 요리 검색 → 재료 (img4) ────────────────────
-    st.markdown('<span class="sec-label">🤖 만들 요리를 검색하세요</span>',unsafe_allow_html=True)
-    ac1,ac2=st.columns([4,1])
-    with ac1:
-        dish_q=st.text_input("요리 검색",value="",placeholder="예: 찜닭, 김치찌개, 잡채...",key="dishq",label_visibility="collapsed")
-    with ac2:
-        find=st.button("재료 찾기",key="finding")
-    if find and dish_q.strip():
-        d,ings=rcp.ask_agent(dish_q)
-        ss["recipe_dish"]=d; ss["recipe_ings"]=ings
-        if not d:
-            ss["recipe_dish"]="__none__"
-        st.rerun()
-
-    if ss["recipe_dish"]=="__none__":
-        st.markdown('<div class="agent-a">음… 아직 그 요리 레시피는 없어요. 다른 요리로 검색하거나 '
-                    '아래에서 직접 재료를 담아보세요 🙂</div>',unsafe_allow_html=True)
-    elif ss["recipe_dish"]:
-        d=ss["recipe_dish"]; ings=ss["recipe_ings"]
-        st.markdown(f'<div class="agent-q">{d} 만들 거야. 뭐 필요해?</div>',unsafe_allow_html=True)
-        ing_lines="<br>".join(f"{i}. {x}" for i,x in enumerate(ings,1))
-        st.markdown(f'<div class="agent-a"><b>{d}</b>엔 다음 재료가 들어가요<br>{ing_lines}<br>'
-                    f'<span style="color:var(--text-3)">담을 재료를 눌러 ON/OFF 하세요</span></div>',
-                    unsafe_allow_html=True)
-        # 재료 ON/OFF 칩 (가로 정렬, 누르면 담기/빼기)
-        st.markdown('<div class="sec-hint">↓ 재료 버튼 — 누르면 장바구니 담기/빼기 (가로 스크롤)</div>',
-                    unsafe_allow_html=True)
-        cols=st.columns(4)
-        for i,ing in enumerate(ings):
-            with cols[i%4]:
-                on=ing in ss["picked"]
-                if st.button(("✓ "if on else "+ ")+ing,key=f"chip_{ing}"):
-                    toggle_pick(ing); st.rerun()
-        st.markdown('<div style="height:8px"></div>',unsafe_allow_html=True)
-
-    # ③ 추가구매 입력 (autocomplete) ─────────────────────────────
-    st.markdown('<span class="sec-label" style="margin-top:6px">➕ 추가로 담을 품목</span>',unsafe_allow_html=True)
-    all_names=list(ITEMS_DF["name"])+list(rcp.EXTRA_ITEMS.keys())
-    addable=[n for n in all_names if n not in ss["picked"]]
-    mc1,mc2=st.columns([4,1])
-    with mc1:
-        man=st.selectbox("추가 품목",["선택…"]+addable,key="manadd",
-                         label_visibility="collapsed",index=0)
-    with mc2:
-        add_clicked=st.button("담기",key="manaddbtn")
-    if add_clicked and man!="선택…":
-        toggle_pick(man); st.rerun()
-
-    # ④ 장바구니 목록 (최저가~최고가 + ⭐) ────────────────────────
-    st.markdown('<span class="sec-label" style="margin-top:14px">🧺 담은 재료</span>',unsafe_allow_html=True)
-    if not ss["picked"]:
-        st.markdown('<div class="sec-hint">아직 담은 재료가 없어요. 위에서 요리를 검색하거나 직접 담아보세요.</div>',
-                    unsafe_allow_html=True)
-    else:
-        tot_lo=tot_hi=0
-        for nm in ss["picked"]:
-            m=rcp.item_meta(nm,ITEMS_DF)
-            if not m: continue
-            lo,hi=rcp.price_range(m,nb); tot_lo+=lo; tot_hi+=hi
-            fav=nm in ss["fav_items"]
-            rc1,rc2,rc3=st.columns([6,1,1])
-            with rc1:
-                st.markdown(
-                    f"<div class='cart-row'><span class='cart-emoji'>{m['emoji']}</span>"
-                    f"<div class='cart-mid'><div class='cart-nm'>"
-                    f"{'<span class=\"fav-star\">★</span>' if fav else ''}{nm}</div>"
-                    f"<div class='cart-un'>{m['unit']} · {m['category']}</div></div>"
-                    f"<div class='cart-rng'><span class='cart-lo'>{lo:,}원</span> "
-                    f"<span class='cart-hi'>~ {hi:,}원</span></div></div>",
-                    unsafe_allow_html=True)
-            with rc2:
-                if st.button("★" if fav else "☆",key=f"fav_{nm}"):
-                    toggle_fav_item(nm); st.rerun()
-            with rc3:
-                if st.button("✕",key=f"rm_{nm}"):
-                    toggle_pick(nm); st.rerun()
+        c1,c2=st.columns(2)
+        with c1:
+            st.markdown('<span class="sec-label">탐색 반경</span>',unsafe_allow_html=True)
+            rc=st.columns(5)
+            for i,(lbl,val) in enumerate({"500m":500,"1km":1000,"2km":2000,"3km":3000,"5km":5000}.items()):
+                with rc[i]:
+                    if st.button(lbl,key=f"r{val}"): ss["radius_m"]=val; st.rerun()
+            st.markdown('<span class="sec-label" style="margin-top:14px">예산</span>',unsafe_allow_html=True)
+            ss["budget"]=st.slider("예산",10000,200000,ss["budget"],5000,format="%d원",key="bslider",label_visibility="collapsed")
+            st.markdown(f'<div style="font-size:22px;font-weight:700;color:#f5a623;'
+                        f'font-family:\'DM Mono\',monospace;margin-top:-4px">{ss["budget"]:,}원</div>',
+                        unsafe_allow_html=True)
+        with c2:
+            st.markdown('<span class="sec-label">가구 구성</span>',unsafe_allow_html=True)
+            hc=st.columns(4)
+            for i,n in enumerate([1,2,3,4]):
+                with hc[i]:
+                    lbl2=f"✓ {n}인" if ss["household"]==n else f"{n}인"
+                    if st.button(lbl2,key=f"h{n}"): ss["household"]=n; st.rerun()
+            st.markdown('<span class="sec-label" style="margin-top:14px">식단 선호</span>',unsafe_allow_html=True)
+            pc=st.columns(4)
+            for i,p in enumerate(["균형","채소","단백질","저탄수화물"]):
+                with pc[i]:
+                    lbl3=f"✓ {p}" if ss["pref"]==p else p
+                    if st.button(lbl3,key=f"p{p}"): ss["pref"]=p; st.rerun()
+            st.markdown('<div style="margin-top:14px"></div>',unsafe_allow_html=True)
+            mk=f"{'✅' if ss['use_market'] else '☐'} 전통시장 가격 기준 적용"
+            if st.button(mk,key="tmk"): ss["use_market"]=not ss["use_market"]; st.rerun()
 
         st.markdown(f"""
-        <div class="gauge-wrap" style="margin-top:12px">
-          <div class="gauge-nums">
-            <div><div style="font-size:10px;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.6px">예상 합계 (최저가 기준)</div>
-              <span class="gauge-total">{tot_lo:,}원</span></div>
-            <div style="text-align:right"><div style="font-size:10px;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.6px">최고가 기준</div>
-              <span class="gauge-of">{tot_hi:,}원</span></div>
+        <div class="summary-strip">
+          <div class="summary-item">
+            <span class="summary-label">예산</span>
+            <span class="summary-val" style="color:#f5a623">{ss['budget']:,}원</span>
           </div>
-        </div>""",unsafe_allow_html=True)
+          <div class="summary-item">
+            <span class="summary-label">가구</span>
+            <span class="summary-val" style="color:#63b7ff">{ss['household']}인</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">식단</span>
+            <span class="summary-val" style="color:#4ade80">{ss['pref']}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">반경</span>
+            <span class="summary-val" style="color:#a78bfa">{ss['radius_m']:,}m</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">가격</span>
+            <span class="summary-val" style="color:#fb7185">{"시장가" if ss["use_market"] else "평균가"}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">위치</span>
+            <span class="summary-val" style="color:#9ca3af;font-size:12px">{ss['lat']:.4f}, {ss['lng']:.4f}</span>
+          </div>
+        </div>
+        """,unsafe_allow_html=True)
 
         st.markdown('<div class="stButton run-btn">',unsafe_allow_html=True)
-        if st.button("🧭  추천 경로 보기",key="goroute",use_container_width=True):
-            rebuild_routes(); ss["route_choice"]=None; ss["guiding"]=False
-            ss["active_panel"]="stores"; st.rerun()
+        if st.button("🔍  이 조건으로 장보기 시작",key="run",use_container_width=True):
+            with st.spinner("주변 점포 분석 중..."):
+                f=filter_stores(STORES_DF,ss["lat"],ss["lng"],ss["radius_m"])
+                ss["result_stores"]=score_stores(f)
+                ss["result_items"]=recommend_items(ss["budget"],ss["household"],ss["pref"],ss["use_market"])
+                ss["route_plan"]={}; ss["route_choice"]=None; ss["guiding"]=False
+                ss["active_panel"]="cart"
+            st.rerun()
         st.markdown('</div>',unsafe_allow_html=True)
 
-    st.markdown("</div></div>",unsafe_allow_html=True)
+        st.markdown("</div></div>",unsafe_allow_html=True)
 
 
-# ── 추천 경로 + 상점별 체크리스트 (img5 → img1/6) ──────────────
-elif ss["active_panel"]=="stores":
-    plan_all=ss["route_plan"]
-    ss.setdefault("tip_open",[])
-    st.markdown('<div class="slide-panel"><div class="panel-drag"></div>'
-                '<div class="panel-header"><div class="panel-title">🧭 추천 경로 · 장보기</div></div>'
-                '<div class="panel-body">',unsafe_allow_html=True)
+    # ── 장바구니 (AI 에이전트 + 재료 담기 + 최저가~최고가) ──────────
+    elif ss["active_panel"]=="cart":
+        st.markdown('<div class="slide-panel"><div class="panel-drag"></div>'
+                    '<div class="panel-header"><div class="panel-title">🛍️ 장바구니 · AI 에이전트</div></div>'
+                    '<div class="panel-body">',unsafe_allow_html=True)
 
-    if not ss["picked"]:
-        st.markdown('<div style="text-align:center;padding:44px 0;color:var(--text-3)">'
-                    '<div style="font-size:40px;margin-bottom:12px">🧭</div>'
-                    '<div style="font-size:14px;font-weight:600">장바구니에서 재료를 먼저 담아주세요</div></div>',
-                    unsafe_allow_html=True)
-        if st.button("🛍️ 장바구니로 이동",key="toCart"):
-            ss["active_panel"]="cart"; st.rerun()
+        nb=_nearby_stores()   # 가격범위 산출용 후보 점포
 
-    elif not plan_all:
-        st.markdown('<div class="sec-hint">반경 내 점포로 경로를 만들 수 없어요. 조건설정에서 반경을 넓혀보세요.</div>',
-                    unsafe_allow_html=True)
-        if st.button("🔄 경로 다시 계산",key="recalc"):
-            rebuild_routes(); st.rerun()
+        # ① 자주 사는 품목 (img3 — 자주 사는 품목 내역 페이지) ─────────
+        if ss["fav_items"]:
+            st.markdown('<span class="sec-label">⭐ 자주 사는 품목</span>',unsafe_allow_html=True)
+            fr=""
+            for nm in ss["fav_items"]:
+                m=rcp.item_meta(nm,ITEMS_DF)
+                if not m: continue
+                lo,hi=rcp.price_range(m,nb)
+                cs,cp=rcp.cheapest_store(m,nb)
+                cs_nm=cs["name"] if cs is not None else "주변 점포 없음"
+                cp_txt=f"최저 {cp:,}원" if cp is not None else f"평균 {m['avg']:,}원"
+                fr+=(f"<div class='freq-row'><span style='font-size:18px'>{m['emoji']}</span>"
+                     f"<span class='freq-nm'>{nm}</span>"
+                     f"<span class='freq-meta'>{cp_txt}<br><span style='color:var(--accent3)'>{cs_nm}</span></span></div>")
+            st.markdown(fr,unsafe_allow_html=True)
+            st.markdown('<div style="height:10px"></div>',unsafe_allow_html=True)
 
-    # ── STAGE 1: 추천 경로 선택 ──────────────────────────────
-    elif not ss["guiding"]:
-        st.markdown('<span class="sec-label">매개변수 — 무엇을 우선할까요?</span>',unsafe_allow_html=True)
-        STRAT={"최저예산":("💰","장바구니 총액 최소"),
-               "최소거리":("📍","현위치 기준 최단경로"),
-               "최소경유":("🏃","들르는 가게 수 최소")}
-        for key,(emoji,desc) in STRAT.items():
-            p=plan_all.get(key)
-            if not p: continue
-            sel="sel" if ss["route_choice"]==key else ""
-            badge='<span class="route-badge">선택됨</span>' if ss["route_choice"]==key else ""
+        # ② AI 에이전트 — 요리 검색 → 재료 (img4) ────────────────────
+        st.markdown('<span class="sec-label">🤖 만들 요리를 검색하세요</span>',unsafe_allow_html=True)
+        ac1,ac2=st.columns([4,1])
+        with ac1:
+            dish_q=st.text_input("요리 검색",value="",placeholder="예: 찜닭, 김치찌개, 잡채...",key="dishq",label_visibility="collapsed")
+        with ac2:
+            find=st.button("재료 찾기",key="finding")
+        if find and dish_q.strip():
+            d,ings=rcp.ask_agent(dish_q)
+            ss["recipe_dish"]=d; ss["recipe_ings"]=ings
+            if not d:
+                ss["recipe_dish"]="__none__"
+            st.rerun()
+
+        if ss["recipe_dish"]=="__none__":
+            st.markdown('<div class="agent-a">음… 아직 그 요리 레시피는 없어요. 다른 요리로 검색하거나 '
+                        '아래에서 직접 재료를 담아보세요 🙂</div>',unsafe_allow_html=True)
+        elif ss["recipe_dish"]:
+            d=ss["recipe_dish"]; ings=ss["recipe_ings"]
+            st.markdown(f'<div class="agent-q">{d} 만들 거야. 뭐 필요해?</div>',unsafe_allow_html=True)
+            ing_lines="<br>".join(f"{i}. {x}" for i,x in enumerate(ings,1))
+            st.markdown(f'<div class="agent-a"><b>{d}</b>엔 다음 재료가 들어가요<br>{ing_lines}<br>'
+                        f'<span style="color:var(--text-3)">담을 재료를 눌러 ON/OFF 하세요</span></div>',
+                        unsafe_allow_html=True)
+            # 재료 ON/OFF 칩 (가로 정렬, 누르면 담기/빼기)
+            st.markdown('<div class="sec-hint">↓ 재료 버튼 — 누르면 장바구니 담기/빼기 (가로 스크롤)</div>',
+                        unsafe_allow_html=True)
+            cols=st.columns(4)
+            for i,ing in enumerate(ings):
+                with cols[i%4]:
+                    on=ing in ss["picked"]
+                    if st.button(("✓ "if on else "+ ")+ing,key=f"chip_{ing}"):
+                        toggle_pick(ing); st.rerun()
+            st.markdown('<div style="height:8px"></div>',unsafe_allow_html=True)
+
+        # ③ 추가구매 입력 (autocomplete) ─────────────────────────────
+        st.markdown('<span class="sec-label" style="margin-top:6px">➕ 추가로 담을 품목</span>',unsafe_allow_html=True)
+        all_names=list(ITEMS_DF["name"])+list(rcp.EXTRA_ITEMS.keys())
+        addable=[n for n in all_names if n not in ss["picked"]]
+        mc1,mc2=st.columns([4,1])
+        with mc1:
+            man=st.selectbox("추가 품목",["선택…"]+addable,key="manadd",
+                             label_visibility="collapsed",index=0)
+        with mc2:
+            add_clicked=st.button("담기",key="manaddbtn")
+        if add_clicked and man!="선택…":
+            toggle_pick(man); st.rerun()
+
+        # ④ 장바구니 목록 (최저가~최고가 + ⭐) ────────────────────────
+        st.markdown('<span class="sec-label" style="margin-top:14px">🧺 담은 재료</span>',unsafe_allow_html=True)
+        if not ss["picked"]:
+            st.markdown('<div class="sec-hint">아직 담은 재료가 없어요. 위에서 요리를 검색하거나 직접 담아보세요.</div>',
+                        unsafe_allow_html=True)
+        else:
+            tot_lo=tot_hi=0
+            for nm in ss["picked"]:
+                m=rcp.item_meta(nm,ITEMS_DF)
+                if not m: continue
+                lo,hi=rcp.price_range(m,nb); tot_lo+=lo; tot_hi+=hi
+                fav=nm in ss["fav_items"]
+                rc1,rc2,rc3=st.columns([6,1,1])
+                with rc1:
+                    st.markdown(
+                        f"<div class='cart-row'><span class='cart-emoji'>{m['emoji']}</span>"
+                        f"<div class='cart-mid'><div class='cart-nm'>"
+                        f"{'<span class=\"fav-star\">★</span>' if fav else ''}{nm}</div>"
+                        f"<div class='cart-un'>{m['unit']} · {m['category']}</div></div>"
+                        f"<div class='cart-rng'><span class='cart-lo'>{lo:,}원</span> "
+                        f"<span class='cart-hi'>~ {hi:,}원</span></div></div>",
+                        unsafe_allow_html=True)
+                with rc2:
+                    if st.button("★" if fav else "☆",key=f"fav_{nm}"):
+                        toggle_fav_item(nm); st.rerun()
+                with rc3:
+                    if st.button("✕",key=f"rm_{nm}"):
+                        toggle_pick(nm); st.rerun()
+
             st.markdown(f"""
-            <div class="route-card {sel}">
-              <div class="route-head">
-                <div class="route-name">{emoji} {key} {badge}</div>
-              </div>
-              <div class="sec-hint" style="margin:-4px 0 9px">{desc}</div>
-              <div class="route-metrics">
-                <div class="route-metric"><span class="route-mval">{p['budget']:,}원</span><span class="route-mlbl">예상 예산</span></div>
-                <div class="route-metric"><span class="route-mval">{p['minutes']}분</span><span class="route-mlbl">소요 시간</span></div>
-                <div class="route-metric"><span class="route-mval">{p['n_stops']}곳</span><span class="route-mlbl">경유 상점</span></div>
+            <div class="gauge-wrap" style="margin-top:12px">
+              <div class="gauge-nums">
+                <div><div style="font-size:10px;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.6px">예상 합계 (최저가 기준)</div>
+                  <span class="gauge-total">{tot_lo:,}원</span></div>
+                <div style="text-align:right"><div style="font-size:10px;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.6px">최고가 기준</div>
+                  <span class="gauge-of">{tot_hi:,}원</span></div>
               </div>
             </div>""",unsafe_allow_html=True)
-            if st.button("✓ 이 경로 선택됨" if ss["route_choice"]==key else "이 경로 선택",key=f"rt_{key}"):
-                ss["route_choice"]=key; st.rerun()
 
-        if ss["route_choice"]:
-            st.markdown('<div class="sec-hint" style="margin-top:8px">선택한 경로가 오른쪽 지도에 표시됩니다. 시작하려면 ↓</div>',
+            st.markdown('<div class="stButton run-btn">',unsafe_allow_html=True)
+            if st.button("🧭  추천 경로 보기",key="goroute",use_container_width=True):
+                rebuild_routes(); ss["route_choice"]=None; ss["guiding"]=False
+                ss["active_panel"]="stores"; st.rerun()
+            st.markdown('</div>',unsafe_allow_html=True)
+
+        st.markdown("</div></div>",unsafe_allow_html=True)
+
+
+    # ── 추천 경로 + 상점별 체크리스트 (img5 → img1/6) ──────────────
+    elif ss["active_panel"]=="stores":
+        plan_all=ss["route_plan"]
+        ss.setdefault("tip_open",[])
+        st.markdown('<div class="slide-panel"><div class="panel-drag"></div>'
+                    '<div class="panel-header"><div class="panel-title">🧭 추천 경로 · 장보기</div></div>'
+                    '<div class="panel-body">',unsafe_allow_html=True)
+
+        if not ss["picked"]:
+            st.markdown('<div style="text-align:center;padding:44px 0;color:var(--text-3)">'
+                        '<div style="font-size:40px;margin-bottom:12px">🧭</div>'
+                        '<div style="font-size:14px;font-weight:600">장바구니에서 재료를 먼저 담아주세요</div></div>',
+                        unsafe_allow_html=True)
+            if st.button("🛍️ 장바구니로 이동",key="toCart"):
+                ss["active_panel"]="cart"; st.rerun()
+
+        elif not plan_all:
+            st.markdown('<div class="sec-hint">반경 내 점포로 경로를 만들 수 없어요. 조건설정에서 반경을 넓혀보세요.</div>',
+                        unsafe_allow_html=True)
+            if st.button("🔄 경로 다시 계산",key="recalc"):
+                rebuild_routes(); st.rerun()
+
+        # ── STAGE 1: 추천 경로 선택 ──────────────────────────────
+        elif not ss["guiding"]:
+            st.markdown('<span class="sec-label">매개변수 — 무엇을 우선할까요?</span>',unsafe_allow_html=True)
+            STRAT={"최저예산":("💰","장바구니 총액 최소"),
+                   "최소거리":("📍","현위치 기준 최단경로"),
+                   "최소경유":("🏃","들르는 가게 수 최소")}
+            for key,(emoji,desc) in STRAT.items():
+                p=plan_all.get(key)
+                if not p: continue
+                sel="sel" if ss["route_choice"]==key else ""
+                badge='<span class="route-badge">선택됨</span>' if ss["route_choice"]==key else ""
+                st.markdown(f"""
+                <div class="route-card {sel}">
+                  <div class="route-head">
+                    <div class="route-name">{emoji} {key} {badge}</div>
+                  </div>
+                  <div class="sec-hint" style="margin:-4px 0 9px">{desc}</div>
+                  <div class="route-metrics">
+                    <div class="route-metric"><span class="route-mval">{p['budget']:,}원</span><span class="route-mlbl">예상 예산</span></div>
+                    <div class="route-metric"><span class="route-mval">{p['minutes']}분</span><span class="route-mlbl">소요 시간</span></div>
+                    <div class="route-metric"><span class="route-mval">{p['n_stops']}곳</span><span class="route-mlbl">경유 상점</span></div>
+                  </div>
+                </div>""",unsafe_allow_html=True)
+                if st.button("✓ 이 경로 선택됨" if ss["route_choice"]==key else "이 경로 선택",key=f"rt_{key}"):
+                    ss["route_choice"]=key; st.rerun()
+
+            if ss["route_choice"]:
+                st.markdown('<div class="sec-hint" style="margin-top:8px">선택한 경로가 오른쪽 지도에 표시됩니다. 시작하려면 ↓</div>',
+                            unsafe_allow_html=True)
+                st.markdown('<div class="stButton run-btn">',unsafe_allow_html=True)
+                if st.button("🚶  안내하기",key="startGuide",use_container_width=True):
+                    ss["guiding"]=True; ss["bought"]=[]; st.rerun()
+                st.markdown('</div>',unsafe_allow_html=True)
+
+        # ── STAGE 2: 상점별 체크리스트 ────────────────────────────
+        else:
+            plan=plan_all.get(ss["route_choice"])
+            if st.button("← 경로 다시 선택",key="backRoute"):
+                ss["guiding"]=False; st.rerun()
+
+            grand=0; bought_cnt=0; total_cnt=0
+            for seq,s in enumerate(plan["stops"],1):
+                info=plan["by_store"][s.id]
+                items=info["items"]
+                stype=getattr(s,"type","동네식품점")
+                sty=STORE_STYLE.get(stype,{"icon":"🏬"})
+                store_total=sum(pr for _,pr,_,_ in items); grand+=store_total
+                star='📌 ' if s.id in ss["fav_stores"] else ''
+                st.markdown(f"""
+                <div class="store-acc">
+                  <div class="store-acc-head">
+                    <div class="store-acc-nm"><span class="store-acc-seq">{seq}</span>{star}{sty['icon']} {s.name}</div>
+                    <div class="chk-price">{store_total:,}원</div>
+                  </div>
+                  <div class="store-acc-sub">{getattr(s,'gu','')} · {stype} · 사야할 항목 {len(items)}개</div>
+                """,unsafe_allow_html=True)
+
+                for nm,price,emoji,unit in items:
+                    total_cnt+=1
+                    bk=f"{s.id}::{nm}"; done=bk in ss["bought"]
+                    if done: bought_cnt+=1
+                    cc1,cc2,cc3=st.columns([6,1,1])
+                    with cc1:
+                        st.markdown(
+                            f"<div class='chk-row'><span class='chk-emoji'>{emoji}</span>"
+                            f"<span class='chk-nm {'done' if done else ''}'>{nm} "
+                            f"<span style='color:var(--text-3);font-size:11px'>{unit}</span></span>"
+                            f"<span class='chk-price'>{price:,}원</span></div>",unsafe_allow_html=True)
+                    with cc2:
+                        if st.button("✓" if done else "○",key=f"buy_{bk}"):
+                            (ss["bought"].remove(bk) if done else ss["bought"].append(bk)); st.rerun()
+                    with cc3:
+                        if st.button("?",key=f"tip_{bk}"):
+                            (ss["tip_open"].remove(bk) if bk in ss["tip_open"] else ss["tip_open"].append(bk)); st.rerun()
+                    if bk in ss["tip_open"]:
+                        tips="".join(f"• {t}<br>" for t in rcp.buying_tip(nm))
+                        st.markdown(f"<div class='tip-box'><b>💡 좋은 {nm} 고르는 법</b><br>{tips}</div>",
+                                    unsafe_allow_html=True)
+                # 자주 가는 가게 등록 토글
+                fav_s=s.id in ss["fav_stores"]
+                if st.button("📌 자주 가는 가게 해제" if fav_s else "📌 자주 가는 가게로 등록",key=f"favs_{s.id}"):
+                    toggle_fav_store(s.id); st.rerun()
+                st.markdown("</div>",unsafe_allow_html=True)
+
+            # 진행 게이지 + 예상 총액
+            pct=(bought_cnt/total_cnt*100) if total_cnt else 0
+            st.markdown(f"""
+            <div class="gauge-wrap" style="margin-top:6px">
+              <div class="gauge-nums">
+                <div><div style="font-size:10px;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.6px">담은 항목</div>
+                  <span class="gauge-total">{bought_cnt}/{total_cnt}</span></div>
+                <div style="text-align:right"><div style="font-size:10px;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.6px">예상 총액</div>
+                  <span class="gauge-of">{grand:,}원</span></div>
+              </div>
+              <div class="gauge-track"><div class="gauge-fill" style="width:{pct:.0f}%;background:#4ade80"></div></div>
+            </div>""",unsafe_allow_html=True)
+
+            bb1,bb2=st.columns(2)
+            with bb1:
+                if st.button("📝 가격 제보하기",key="goReport"):
+                    ss["report_prefill"]=plan["stops"][0].name if plan["stops"] else None
+                    ss["active_panel"]="report"; st.rerun()
+            with bb2:
+                st.markdown('<div class="stButton run-btn">',unsafe_allow_html=True)
+                if st.button("✅ 장보기 완료",key="doneShop",use_container_width=True):
+                    ss["guiding"]=False; ss["bought"]=[]; ss["route_choice"]=None
+                    st.success("🎉 장보기 완료! 오늘도 알뜰하게 잘 사셨어요.")
+                    st.rerun()
+                st.markdown('</div>',unsafe_allow_html=True)
+
+        st.markdown("</div></div>",unsafe_allow_html=True)
+
+
+    # ── 자주 가는 가게 · 자주 사는 품목 (img6) ───────────────────
+    elif ss["active_panel"]=="favorites":
+        st.markdown('<div class="slide-panel"><div class="panel-drag"></div>'
+                    '<div class="panel-header"><div class="panel-title">⭐ 자주 가는 가게 · 자주 사는 품목</div></div>'
+                    '<div class="panel-body">',unsafe_allow_html=True)
+
+        nb=_nearby_stores()
+
+        # ① 자주 가는 가게 — 클릭 시 그 가게 품목 리스트업(자주 사는 품목 먼저) ───
+        st.markdown('<span class="sec-label">📌 자주 가는 가게</span>',unsafe_allow_html=True)
+
+        # 주변 점포에서 자주 가는 가게 추가
+        cand=nb if not nb.empty else STORES_DF
+        addable=[r for _,r in cand.head(40).iterrows() if r["id"] not in ss["fav_stores"]]
+        if addable:
+            opt_map={f'{STORE_STYLE.get(r["type"],{}).get("icon","🏬")} {r["name"]} · {r["gu"]}':r["id"] for r in addable}
+            pick_lbl=st.selectbox("가게 추가",["선택…"]+list(opt_map.keys()),
+                                  key="favstore_add",label_visibility="collapsed",index=0)
+            if st.button("📌 자주 가는 가게로 등록",key="favstore_addbtn",use_container_width=True):
+                if pick_lbl!="선택…":
+                    toggle_fav_store(opt_map[pick_lbl]); st.rerun()
+
+        if not ss["fav_stores"]:
+            st.markdown('<div class="sec-hint">아직 자주 가는 가게가 없어요. 위에서 추가하거나, 장보기 안내 화면에서 📌로 등록할 수 있어요.</div>',
+                        unsafe_allow_html=True)
+        else:
+            other_names=list(ITEMS_DF["name"])
+            for sid in ss["fav_stores"]:
+                fr=STORES_DF[STORES_DF["id"]==sid]
+                if fr.empty: continue
+                r=fr.iloc[0]
+                sty=STORE_STYLE.get(r["type"],{"icon":"🏬"})
+                with st.expander(f'{sty["icon"]} {r["name"]} · {r["gu"]}'):
+                    # 자주 사는 품목 먼저, 그 다음 일반 품목 채우기 (최대 6개)
+                    ordered=[n for n in ss["fav_items"]]+[n for n in other_names if n not in ss["fav_items"]]
+                    shown=0; rows=""
+                    for nm in ordered:
+                        if shown>=6: break
+                        m=rcp.item_meta(nm,ITEMS_DF)
+                        if not m: continue
+                        p=rcp.store_item_price(r["id"],r["type"],m)
+                        star='<span class="fav-star">★</span> ' if nm in ss["fav_items"] else ''
+                        rows+=(f"<div class='freq-row'><span style='font-size:18px'>{m['emoji']}</span>"
+                               f"<span class='freq-nm'>{star}{nm}</span>"
+                               f"<span class='freq-meta'>{p:,}원<br><span style='color:var(--text-3)'>{m['unit']}</span></span></div>")
+                        shown+=1
+                    st.markdown(rows or '<div class="sec-hint">표시할 품목이 없어요.</div>',unsafe_allow_html=True)
+                    if st.button("📌 자주 가는 가게 해제",key=f"unfav_{sid}"):
+                        toggle_fav_store(sid); st.rerun()
+
+        st.markdown('<div style="height:14px"></div>',unsafe_allow_html=True)
+
+        # ② 자주 사는 품목 — 순서대로 최저가 상점 연결 + 최단경로 ───────────────
+        st.markdown('<span class="sec-label">⭐ 자주 사는 품목 — 최저가 상점 연결</span>',unsafe_allow_html=True)
+        if not ss["fav_items"]:
+            st.markdown('<div class="sec-hint">장바구니에서 품목 옆 ☆ 를 눌러 자주 사는 품목으로 등록하세요.</div>',
+                        unsafe_allow_html=True)
+        else:
+            fr=""
+            for nm in ss["fav_items"]:
+                m=rcp.item_meta(nm,ITEMS_DF)
+                if not m: continue
+                cs,cp=rcp.cheapest_store(m,nb)
+                cs_nm=cs["name"] if cs is not None else "주변 점포 없음"
+                cp_txt=f"최저 {cp:,}원" if cp is not None else f"평균 {m['avg']:,}원"
+                fr+=(f"<div class='freq-row'><span style='font-size:18px'>{m['emoji']}</span>"
+                     f"<span class='freq-nm'><span class='fav-star'>★</span> {nm}</span>"
+                     f"<span class='freq-meta'>{cp_txt}<br><span style='color:var(--accent3)'>{cs_nm}</span></span></div>")
+            st.markdown(fr,unsafe_allow_html=True)
+
+            st.markdown('<div class="sec-hint" style="margin-top:8px">자주 사는 품목 전체를 최단경로로 한 번에 사러 갈 수 있어요.</div>',
                         unsafe_allow_html=True)
             st.markdown('<div class="stButton run-btn">',unsafe_allow_html=True)
-            if st.button("🚶  안내하기",key="startGuide",use_container_width=True):
-                ss["guiding"]=True; ss["bought"]=[]; st.rerun()
+            if st.button("🧭  자주 사는 품목으로 경로 만들기",key="favroute",use_container_width=True):
+                ss["picked"]=list(ss["fav_items"])
+                rebuild_routes(); ss["route_choice"]=None; ss["guiding"]=False
+                ss["active_panel"]="stores"; st.rerun()
             st.markdown('</div>',unsafe_allow_html=True)
 
-    # ── STAGE 2: 상점별 체크리스트 ────────────────────────────
-    else:
-        plan=plan_all.get(ss["route_choice"])
-        if st.button("← 경로 다시 선택",key="backRoute"):
-            ss["guiding"]=False; st.rerun()
-
-        grand=0; bought_cnt=0; total_cnt=0
-        for seq,s in enumerate(plan["stops"],1):
-            info=plan["by_store"][s.id]
-            items=info["items"]
-            stype=getattr(s,"type","동네식품점")
-            sty=STORE_STYLE.get(stype,{"icon":"🏬"})
-            store_total=sum(pr for _,pr,_,_ in items); grand+=store_total
-            star='📌 ' if s.id in ss["fav_stores"] else ''
-            st.markdown(f"""
-            <div class="store-acc">
-              <div class="store-acc-head">
-                <div class="store-acc-nm"><span class="store-acc-seq">{seq}</span>{star}{sty['icon']} {s.name}</div>
-                <div class="chk-price">{store_total:,}원</div>
-              </div>
-              <div class="store-acc-sub">{getattr(s,'gu','')} · {stype} · 사야할 항목 {len(items)}개</div>
-            """,unsafe_allow_html=True)
-
-            for nm,price,emoji,unit in items:
-                total_cnt+=1
-                bk=f"{s.id}::{nm}"; done=bk in ss["bought"]
-                if done: bought_cnt+=1
-                cc1,cc2,cc3=st.columns([6,1,1])
-                with cc1:
-                    st.markdown(
-                        f"<div class='chk-row'><span class='chk-emoji'>{emoji}</span>"
-                        f"<span class='chk-nm {'done' if done else ''}'>{nm} "
-                        f"<span style='color:var(--text-3);font-size:11px'>{unit}</span></span>"
-                        f"<span class='chk-price'>{price:,}원</span></div>",unsafe_allow_html=True)
-                with cc2:
-                    if st.button("✓" if done else "○",key=f"buy_{bk}"):
-                        (ss["bought"].remove(bk) if done else ss["bought"].append(bk)); st.rerun()
-                with cc3:
-                    if st.button("?",key=f"tip_{bk}"):
-                        (ss["tip_open"].remove(bk) if bk in ss["tip_open"] else ss["tip_open"].append(bk)); st.rerun()
-                if bk in ss["tip_open"]:
-                    tips="".join(f"• {t}<br>" for t in rcp.buying_tip(nm))
-                    st.markdown(f"<div class='tip-box'><b>💡 좋은 {nm} 고르는 법</b><br>{tips}</div>",
-                                unsafe_allow_html=True)
-            # 자주 가는 가게 등록 토글
-            fav_s=s.id in ss["fav_stores"]
-            if st.button("📌 자주 가는 가게 해제" if fav_s else "📌 자주 가는 가게로 등록",key=f"favs_{s.id}"):
-                toggle_fav_store(s.id); st.rerun()
-            st.markdown("</div>",unsafe_allow_html=True)
-
-        # 진행 게이지 + 예상 총액
-        pct=(bought_cnt/total_cnt*100) if total_cnt else 0
-        st.markdown(f"""
-        <div class="gauge-wrap" style="margin-top:6px">
-          <div class="gauge-nums">
-            <div><div style="font-size:10px;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.6px">담은 항목</div>
-              <span class="gauge-total">{bought_cnt}/{total_cnt}</span></div>
-            <div style="text-align:right"><div style="font-size:10px;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.6px">예상 총액</div>
-              <span class="gauge-of">{grand:,}원</span></div>
-          </div>
-          <div class="gauge-track"><div class="gauge-fill" style="width:{pct:.0f}%;background:#4ade80"></div></div>
-        </div>""",unsafe_allow_html=True)
-
-        bb1,bb2=st.columns(2)
-        with bb1:
-            if st.button("📝 가격 제보하기",key="goReport"):
-                ss["report_prefill"]=plan["stops"][0].name if plan["stops"] else None
-                ss["active_panel"]="report"; st.rerun()
-        with bb2:
-            st.markdown('<div class="stButton run-btn">',unsafe_allow_html=True)
-            if st.button("✅ 장보기 완료",key="doneShop",use_container_width=True):
-                ss["guiding"]=False; ss["bought"]=[]; ss["route_choice"]=None
-                st.success("🎉 장보기 완료! 오늘도 알뜰하게 잘 사셨어요.")
-                st.rerun()
-            st.markdown('</div>',unsafe_allow_html=True)
-
-    st.markdown("</div></div>",unsafe_allow_html=True)
+        st.markdown("</div></div>",unsafe_allow_html=True)
 
 
-# ── 자주 가는 가게 · 자주 사는 품목 (img6) ───────────────────
-elif ss["active_panel"]=="favorites":
-    st.markdown('<div class="slide-panel"><div class="panel-drag"></div>'
-                '<div class="panel-header"><div class="panel-title">⭐ 자주 가는 가게 · 자주 사는 품목</div></div>'
-                '<div class="panel-body">',unsafe_allow_html=True)
+    # ── 가격 제보 ────────────────────────────────────────────────
+    elif ss["active_panel"]=="report":
+        st.markdown('<div class="slide-panel"><div class="panel-drag"></div>'
+                    '<div class="panel-header"><div class="panel-title">📝 PGIS 가격 제보</div></div>'
+                    '<div class="panel-body">',unsafe_allow_html=True)
 
-    nb=_nearby_stores()
+        st.markdown("""
+        <div style="background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.18);
+                    border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#d4a24a;line-height:1.6">
+          🖊️ 지도에서 마커를 그린 후 직접 확인한 가격을 입력하면 데이터에 기여할 수 있습니다.
+          시민 제보 데이터는 지도에 <b style="color:#f5a623">황금색 마커</b>로 표시됩니다.
+        </div>
+        """,unsafe_allow_html=True)
 
-    # ① 자주 가는 가게 — 클릭 시 그 가게 품목 리스트업(자주 사는 품목 먼저) ───
-    st.markdown('<span class="sec-label">📌 자주 가는 가게</span>',unsafe_allow_html=True)
+        rc1,rc2=st.columns(2)
+        with rc1:
+            st.markdown('<span class="sec-label">품목</span>',unsafe_allow_html=True)
+            isel=st.selectbox("품목",ITEMS_DF["name"].tolist(),key="ri",label_visibility="collapsed")
+            st.markdown('<span class="sec-label" style="margin-top:10px">상점명</span>',unsafe_allow_html=True)
+            sinp=st.text_input("상점명",value=ss.get("report_prefill") or "",placeholder="예: 망원시장 2번 골목",key="rs",label_visibility="collapsed")
+        with rc2:
+            st.markdown('<span class="sec-label">가격 (원)</span>',unsafe_allow_html=True)
+            pinp=st.number_input("가격",min_value=100,max_value=100000,step=100,key="rp",label_visibility="collapsed")
+            st.markdown('<span class="sec-label" style="margin-top:10px">메모</span>',unsafe_allow_html=True)
+            ninp=st.text_input("메모",placeholder="예: 오늘만 특가",key="rn",label_visibility="collapsed")
 
-    # 주변 점포에서 자주 가는 가게 추가
-    cand=nb if not nb.empty else STORES_DF
-    addable=[r for _,r in cand.head(40).iterrows() if r["id"] not in ss["fav_stores"]]
-    if addable:
-        opt_map={f'{STORE_STYLE.get(r["type"],{}).get("icon","🏬")} {r["name"]} · {r["gu"]}':r["id"] for r in addable}
-        pick_lbl=st.selectbox("가게 추가",["선택…"]+list(opt_map.keys()),
-                              key="favstore_add",label_visibility="collapsed",index=0)
-        if st.button("📌 자주 가는 가게로 등록",key="favstore_addbtn",use_container_width=True):
-            if pick_lbl!="선택…":
-                toggle_fav_store(opt_map[pick_lbl]); st.rerun()
+        if st.button("📝  제보 등록하기",key="rsub",use_container_width=True):
+            report_db.add_report(
+                item=isel, price=pinp, store=sinp,
+                lat=ss["lat"]+np.random.uniform(-0.003,0.003),
+                lng=ss["lng"]+np.random.uniform(-0.003,0.003))
+            ss["user_reports"]=report_db.load_reports()   # DB에서 재로드 (영속)
+            st.success(f"✅ '{isel}' 가격 제보가 등록됐습니다!",icon="🎉")
+            st.rerun()
 
-    if not ss["fav_stores"]:
-        st.markdown('<div class="sec-hint">아직 자주 가는 가게가 없어요. 위에서 추가하거나, 장보기 안내 화면에서 📌로 등록할 수 있어요.</div>',
-                    unsafe_allow_html=True)
-    else:
-        other_names=list(ITEMS_DF["name"])
-        for sid in ss["fav_stores"]:
-            fr=STORES_DF[STORES_DF["id"]==sid]
-            if fr.empty: continue
-            r=fr.iloc[0]
-            sty=STORE_STYLE.get(r["type"],{"icon":"🏬"})
-            with st.expander(f'{sty["icon"]} {r["name"]} · {r["gu"]}'):
-                # 자주 사는 품목 먼저, 그 다음 일반 품목 채우기 (최대 6개)
-                ordered=[n for n in ss["fav_items"]]+[n for n in other_names if n not in ss["fav_items"]]
-                shown=0; rows=""
-                for nm in ordered:
-                    if shown>=6: break
-                    m=rcp.item_meta(nm,ITEMS_DF)
-                    if not m: continue
-                    p=rcp.store_item_price(r["id"],r["type"],m)
-                    star='<span class="fav-star">★</span> ' if nm in ss["fav_items"] else ''
-                    rows+=(f"<div class='freq-row'><span style='font-size:18px'>{m['emoji']}</span>"
-                           f"<span class='freq-nm'>{star}{nm}</span>"
-                           f"<span class='freq-meta'>{p:,}원<br><span style='color:var(--text-3)'>{m['unit']}</span></span></div>")
-                    shown+=1
-                st.markdown(rows or '<div class="sec-hint">표시할 품목이 없어요.</div>',unsafe_allow_html=True)
-                if st.button("📌 자주 가는 가게 해제",key=f"unfav_{sid}"):
-                    toggle_fav_store(sid); st.rerun()
-
-    st.markdown('<div style="height:14px"></div>',unsafe_allow_html=True)
-
-    # ② 자주 사는 품목 — 순서대로 최저가 상점 연결 + 최단경로 ───────────────
-    st.markdown('<span class="sec-label">⭐ 자주 사는 품목 — 최저가 상점 연결</span>',unsafe_allow_html=True)
-    if not ss["fav_items"]:
-        st.markdown('<div class="sec-hint">장바구니에서 품목 옆 ☆ 를 눌러 자주 사는 품목으로 등록하세요.</div>',
-                    unsafe_allow_html=True)
-    else:
-        fr=""
-        for nm in ss["fav_items"]:
-            m=rcp.item_meta(nm,ITEMS_DF)
-            if not m: continue
-            cs,cp=rcp.cheapest_store(m,nb)
-            cs_nm=cs["name"] if cs is not None else "주변 점포 없음"
-            cp_txt=f"최저 {cp:,}원" if cp is not None else f"평균 {m['avg']:,}원"
-            fr+=(f"<div class='freq-row'><span style='font-size:18px'>{m['emoji']}</span>"
-                 f"<span class='freq-nm'><span class='fav-star'>★</span> {nm}</span>"
-                 f"<span class='freq-meta'>{cp_txt}<br><span style='color:var(--accent3)'>{cs_nm}</span></span></div>")
-        st.markdown(fr,unsafe_allow_html=True)
-
-        st.markdown('<div class="sec-hint" style="margin-top:8px">자주 사는 품목 전체를 최단경로로 한 번에 사러 갈 수 있어요.</div>',
-                    unsafe_allow_html=True)
-        st.markdown('<div class="stButton run-btn">',unsafe_allow_html=True)
-        if st.button("🧭  자주 사는 품목으로 경로 만들기",key="favroute",use_container_width=True):
-            ss["picked"]=list(ss["fav_items"])
-            rebuild_routes(); ss["route_choice"]=None; ss["guiding"]=False
-            ss["active_panel"]="stores"; st.rerun()
-        st.markdown('</div>',unsafe_allow_html=True)
-
-    st.markdown("</div></div>",unsafe_allow_html=True)
-
-
-# ── 가격 제보 ────────────────────────────────────────────────
-elif ss["active_panel"]=="report":
-    st.markdown('<div class="slide-panel"><div class="panel-drag"></div>'
-                '<div class="panel-header"><div class="panel-title">📝 PGIS 가격 제보</div></div>'
-                '<div class="panel-body">',unsafe_allow_html=True)
-
-    st.markdown("""
-    <div style="background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.18);
-                border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#d4a24a;line-height:1.6">
-      🖊️ 지도에서 마커를 그린 후 직접 확인한 가격을 입력하면 데이터에 기여할 수 있습니다.
-      시민 제보 데이터는 지도에 <b style="color:#f5a623">황금색 마커</b>로 표시됩니다.
-    </div>
-    """,unsafe_allow_html=True)
-
-    rc1,rc2=st.columns(2)
-    with rc1:
-        st.markdown('<span class="sec-label">품목</span>',unsafe_allow_html=True)
-        isel=st.selectbox("품목",ITEMS_DF["name"].tolist(),key="ri",label_visibility="collapsed")
-        st.markdown('<span class="sec-label" style="margin-top:10px">상점명</span>',unsafe_allow_html=True)
-        sinp=st.text_input("상점명",value=ss.get("report_prefill") or "",placeholder="예: 망원시장 2번 골목",key="rs",label_visibility="collapsed")
-    with rc2:
-        st.markdown('<span class="sec-label">가격 (원)</span>',unsafe_allow_html=True)
-        pinp=st.number_input("가격",min_value=100,max_value=100000,step=100,key="rp",label_visibility="collapsed")
-        st.markdown('<span class="sec-label" style="margin-top:10px">메모</span>',unsafe_allow_html=True)
-        ninp=st.text_input("메모",placeholder="예: 오늘만 특가",key="rn",label_visibility="collapsed")
-
-    if st.button("📝  제보 등록하기",key="rsub",use_container_width=True):
-        report_db.add_report(
-            item=isel, price=pinp, store=sinp,
-            lat=ss["lat"]+np.random.uniform(-0.003,0.003),
-            lng=ss["lng"]+np.random.uniform(-0.003,0.003))
-        ss["user_reports"]=report_db.load_reports()   # DB에서 재로드 (영속)
-        st.success(f"✅ '{isel}' 가격 제보가 등록됐습니다!",icon="🎉")
-        st.rerun()
-
-    st.markdown('<span class="sec-label" style="margin-top:16px">최근 제보</span>',unsafe_allow_html=True)
-    PA=dict(zip(ITEMS_DF["name"],ITEMS_DF["avg_price"]))
-    rh=""
-    for rpt in reversed(ss["user_reports"][-6:]):
-        avg=PA.get(rpt["item"]); diff=""
-        if avg:
-            d=rpt["price"]-avg; col="#4ade80" if d<0 else "#ff6b6b"; sg="▼" if d<0 else "▲"
-            diff=f'<span style="color:{col};font-size:10px;margin-left:6px">{sg} {abs(d):,}원</span>'
-        rh+=(f"<div class='rpt-card'>"
-             f"<div>"
-             f"<div class='rpt-name'>{rpt['item']}{diff}</div>"
-             f"<div class='rpt-store'>{rpt.get('store','위치 미상')} · {rpt['date']}</div>"
-             f"</div>"
-             f"<div class='rpt-price'>{rpt['price']:,}원</div>"
-             f"</div>")
-    st.markdown(rh,unsafe_allow_html=True)
-    st.markdown("</div></div>",unsafe_allow_html=True)
+        st.markdown('<span class="sec-label" style="margin-top:16px">최근 제보</span>',unsafe_allow_html=True)
+        PA=dict(zip(ITEMS_DF["name"],ITEMS_DF["avg_price"]))
+        rh=""
+        for rpt in reversed(ss["user_reports"][-6:]):
+            avg=PA.get(rpt["item"]); diff=""
+            if avg:
+                d=rpt["price"]-avg; col="#4ade80" if d<0 else "#ff6b6b"; sg="▼" if d<0 else "▲"
+                diff=f'<span style="color:{col};font-size:10px;margin-left:6px">{sg} {abs(d):,}원</span>'
+            rh+=(f"<div class='rpt-card'>"
+                 f"<div>"
+                 f"<div class='rpt-name'>{rpt['item']}{diff}</div>"
+                 f"<div class='rpt-store'>{rpt.get('store','위치 미상')} · {rpt['date']}</div>"
+                 f"</div>"
+                 f"<div class='rpt-price'>{rpt['price']:,}원</div>"
+                 f"</div>")
+        st.markdown(rh,unsafe_allow_html=True)
+        st.markdown("</div></div>",unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════
-# 지도 렌더링 — DOM 마지막 위치
-# 위젯(block-container z-index:999) 뒤에 그려지고,
-# 유리패널(z-index:998)·네비(z-index:1001)는 지도 위에 유지됨
+# 지도 렌더링 — 메인 영역 (사이드바 오른쪽 전체화면 배경)
+# iframe은 position:fixed 전체화면(z-index:0), 사이드바(z-index:100)가 위에 오버레이
 # ══════════════════════════════════════════════════════════════
 map_out=st_folium(build_map(),width="100%",height=900,
                   returned_objects=["last_clicked","all_drawings"],key="main_map")
