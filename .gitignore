@@ -17,3 +17,6 @@ venv/
 # 기타
 .DS_Store
 *.log
+
+# API 테스트용 샘플 데이터
+api/*.csv

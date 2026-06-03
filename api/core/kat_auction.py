@@ -6,8 +6,12 @@ core/kat_auction.py
   1. 당일 전체 데이터 수집 (페이지네이션)
   2. 정규화 단가 계산: scsbd_prc / (qty × unit_qty)
   3. 정오(12:00) 기준 필터링 - 정오 데이터 없으면 가장 가까운 시간대 사용
-  4. 품목(gds_mclsf_nm) 기준 IQR 상하위 10% 극단값 제거
-  5. 품목별 최저가/평균가/중앙가/최고가 집계
+  4. 단가 오류 보정: 정규화 단가 20원/kg 미만 행은 scsbd_prc / unit_qty로 재계산
+     (scsbd_prc가 총액 대신 단위당 가격으로 잘못 기록된 케이스 대응)
+     보정 후에도 범위를 벗어나면 제거
+  5. 품목(gds_mclsf_nm) 기준 IQR 상하위 10% 극단값 제거
+  6. 소분류(gds_sclsf_nm) 기준 집계 (최저가/중앙값/평균가/최고가)
+  7. 대분류(gds_lclsf_nm) 기준으로 테이블 분리
 """
 
 import os
@@ -85,6 +89,26 @@ def _filter_noon(df: pd.DataFrame) -> pd.DataFrame:
     return df.drop(columns=["_scsbd_dt", "_noon_diff"]).reset_index(drop=True)
 
 
+def _correct_unit_price_errors(df: pd.DataFrame,
+                                min_price: float = 20.0,
+                                max_price: float = 200000.0) -> pd.DataFrame:
+    """scsbd_prc가 총액 대신 단위당 가격으로 잘못 기록된 행을 탐지·보정.
+
+    탐지: 정규화 단가 < min_price(원/kg)
+    보정: scsbd_prc / unit_qty 로 재계산
+    보정 후 [min_price, max_price] 범위를 벗어나면 제거.
+    """
+    df = df.copy()
+    error_mask = df["정규화 단가"] < min_price
+
+    if error_mask.any():
+        corrected = df.loc[error_mask, "scsbd_prc"] / df.loc[error_mask, "unit_qty"]
+        valid_idx = corrected[(corrected >= min_price) & (corrected <= max_price)].index
+        df.loc[valid_idx, "정규화 단가"] = corrected[valid_idx]
+
+    return df[df["정규화 단가"] >= min_price].reset_index(drop=True)
+
+
 def _remove_iqr_outliers(df: pd.DataFrame, group_col: str = "gds_mclsf_nm",
                           lower: float = 0.10, upper: float = 0.90) -> pd.DataFrame:
     """품목별 IQR 상하위 10% 극단값 제거"""
@@ -100,37 +124,58 @@ def _remove_iqr_outliers(df: pd.DataFrame, group_col: str = "gds_mclsf_nm",
     return df[mask].drop(columns=["_q_low", "_q_high"]).reset_index(drop=True)
 
 
-def _add_stats(df: pd.DataFrame, group_col: str = "gds_mclsf_nm") -> pd.DataFrame:
-    """품목별 최저가/평균가/중앙가/최고가를 각 행에 추가"""
+_META_COLS = [
+    "gds_lclsf_nm",
+    "gds_mclsf_cd", "gds_mclsf_nm",
+    "gds_sclsf_cd", "gds_sclsf_nm",
+    "unit_cd", "unit_nm",
+]
+
+
+def _aggregate(df: pd.DataFrame) -> pd.DataFrame:
+    """소분류별 최저가/중앙값/평균가/최고가 집계 후 메타 컬럼만 남김
+    소분류가 '기타' 또는 '-'인 행은 중분류명으로 대체 후 집계.
+    """
+    df = df.copy()
+    mask = df["gds_sclsf_nm"].isin(["기타", "-"])
+    df.loc[mask, "gds_sclsf_nm"] = df.loc[mask, "gds_mclsf_nm"]
+
     stats = (
-        df.groupby(group_col)["정규화 단가"]
-          .agg(최저가="min", 평균가="mean", 중앙가="median", 최고가="max")
+        df.groupby("gds_sclsf_nm")["정규화 단가"]
+          .agg(최저가="min", 중앙값="median", 평균가="mean", 최고가="max")
           .round(1)
           .reset_index()
     )
-    return df.merge(stats, on=group_col, how="left")
+    meta = df[_META_COLS].drop_duplicates(subset="gds_sclsf_nm")
+    return meta.merge(stats, on="gds_sclsf_nm", how="left").reset_index(drop=True)
 
 
-def fetch_auction_prices(target_date: str | None = None) -> pd.DataFrame:
+def fetch_auction_prices(target_date: str | None = None) -> dict[str, pd.DataFrame]:
     """
-    경매 데이터 수집 → 정규화 → 극단값 제거 → 통계 집계.
+    경매 데이터 수집 → 정규화 → 극단값 제거 → 소분류 집계 → 대분류별 테이블 분리.
 
     Args:
         target_date: 'YYYY-MM-DD' (기본: 오늘)
 
     Returns:
-        원본 열 + 정규화 단가 + 최저가/평균가/중앙가/최고가 가 포함된 DataFrame
+        대분류명(gds_lclsf_nm)을 키로 하는 DataFrame dict.
+        각 DataFrame은 소분류 1행 = 최저가/중앙값/평균가/최고가(원/kg) 구조.
     """
     if target_date is None:
         target_date = date.today().strftime("%Y-%m-%d")
 
     rows = _fetch_all(target_date)
     if not rows:
-        return pd.DataFrame()
+        return {}
 
     df = pd.DataFrame(rows)
     df = _normalize(df)
     df = _filter_noon(df)
+    df = _correct_unit_price_errors(df)
     df = _remove_iqr_outliers(df)
-    df = _add_stats(df)
-    return df
+    df = _aggregate(df)
+
+    return {
+        lclsf: group.drop(columns="gds_lclsf_nm").reset_index(drop=True)
+        for lclsf, group in df.groupby("gds_lclsf_nm")
+    }
