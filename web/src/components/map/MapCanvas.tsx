@@ -9,15 +9,9 @@ import { useApp } from "@/lib/store";
 import { getStores } from "@/lib/api";
 import type { Store } from "@/lib/types";
 import { useRef } from "react";
+import PriceLayer from "./PriceLayer";
 
-const TYPE_COLOR: Record<string, string> = {
-  전통시장: "#63b7ff",
-  골목상권: "#4ade80",
-  동네식품점: "#f5a623",
-  대형유통: "#a882ff",
-};
-
-export default function MapCanvas() {
+export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
   const { lat, lng, radiusM, routePlans, routeChoice, setLoc, mapStyle } = useApp();
   const [stores, setStores] = useState<Store[]>([]);
   const mapRef = useRef<MapRef | null>(null);
@@ -49,7 +43,6 @@ export default function MapCanvas() {
   function handleClick(e: MapMouseEvent) {
     const map = mapRef.current;
     const feats = (e as unknown as MapLayerMouseEvent).features;
-    // 클러스터 클릭 → 확대
     const cl = feats?.find((f) => f.layer?.id === "clusters");
     if (cl && map) {
       const clusterId = cl.properties?.cluster_id;
@@ -62,7 +55,6 @@ export default function MapCanvas() {
       });
       return;
     }
-    // 그 외 빈 지도 클릭 → 내 위치(집) 이동
     if (!feats?.length) setLoc(e.lngLat.lat, e.lngLat.lng);
   }
 
@@ -81,6 +73,9 @@ export default function MapCanvas() {
       <Marker longitude={lng} latitude={lat} anchor="center">
         <div style={{ fontSize: 26, filter: "drop-shadow(0 2px 3px rgba(0,0,0,.5))" }}>🏠</div>
       </Marker>
+
+      {/* 가격 히트맵 레이어 (토글) */}
+      <PriceLayer visible={priceLayerOn} />
 
       {/* 상점 클러스터 */}
       <Source
@@ -121,10 +116,10 @@ export default function MapCanvas() {
           paint={{
             "circle-color": [
               "match", ["get", "type"],
-              "전통시장", "#63b7ff",
-              "골목상권", "#4ade80",
+              "전통시장",   "#63b7ff",
+              "골목상권",   "#4ade80",
               "동네식품점", "#f5a623",
-              "대형유통", "#a882ff",
+              "대형유통",   "#a882ff",
               "#888",
             ],
             "circle-radius": 7,

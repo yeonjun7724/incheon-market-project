@@ -22,7 +22,6 @@ KAT 경매 데이터 + KAMIS 전용 품목을 합쳐 DB 적재용 단일 DataFra
 """
 
 import re
-import sqlite3
 import pandas as pd
 from datetime import date, timedelta
 from core.kat_auction import fetch_auction_prices
@@ -197,18 +196,15 @@ def build_price_table(target_date: str | None = None) -> pd.DataFrame:
     return pd.concat([kat_df[_FINAL_COLS], kamis_df], ignore_index=True)
 
 
-def save_price_table(df: pd.DataFrame, db_path: str,
+def save_price_table(df: pd.DataFrame, engine,
                      table: str = "daily_prices") -> None:
     """
-    build_price_table() 결과를 SQLite DB에 저장.
-
-    한글 컬럼/데이터 보존을 위해 UTF-8 인코딩 명시.
-    기존 테이블은 당일 데이터로 교체(replace).
+    build_price_table() 결과를 PostGIS(PostgreSQL)에 저장.
+    당일 데이터 전체 교체 (TRUNCATE + INSERT).
+    engine: sqlalchemy Engine (core/db.py get_engine() 반환값)
     """
-    conn = sqlite3.connect(db_path, check_same_thread=False)
-    try:
-        conn.execute("PRAGMA encoding='UTF-8'")
-        df.to_sql(table, conn, if_exists="replace", index=False)
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        conn.execute(text(f"TRUNCATE TABLE {table}"))
+        df.to_sql(table, conn, if_exists="append", index=False, method="multi")
         conn.commit()
-    finally:
-        conn.close()
