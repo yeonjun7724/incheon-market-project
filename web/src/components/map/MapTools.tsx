@@ -41,8 +41,16 @@ export function MapTools({ onTogglePriceLayer, priceLayerOn }: {
     setSyncResult(null);
     try {
       const res = await fetch(`${BASE}/admin/sync-prices`, { method: "POST" });
+      if (!res.ok) {
+        setSyncResult(`❌ 서버 오류 (${res.status})`);
+        return;
+      }
       const data = await res.json();
-      setSyncResult(data.ok ? `✅ ${data.rows}행 갱신` : `❌ ${data.error}`);
+      if (data.ok) {
+        setSyncResult(`✅ ${data.rows ?? 0}행 갱신`);
+      } else {
+        setSyncResult(`❌ ${data.error ?? "갱신 실패"}`);
+      }
     } catch {
       setSyncResult("❌ 연결 실패");
     } finally {
