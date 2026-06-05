@@ -1,4 +1,6 @@
 """LocalCart API — 기존 파이썬 로직(core/*)을 REST로 노출."""
+
+# github push 갱신을 위한 주석 첨가
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
