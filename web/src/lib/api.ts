@@ -1,5 +1,5 @@
 import type {
-  Store, Item, Recipe, BasketResult, RoutePlans, Report, DailyPrice,
+  Store, Item, Recipe, BasketResult, RoutePlans, Report, DailyPrice, ItemSuggestion,
 } from "./types";
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
@@ -50,3 +50,6 @@ export const addReport = (body: Report) =>
   api<Report>("/reports", { method: "POST", body: JSON.stringify(body) });
 
 export const getDailyPrices = () => api<DailyPrice[]>("/prices/daily");
+
+export const searchItems = (q: string) =>
+  api<ItemSuggestion[]>(`/items/search?q=${encodeURIComponent(q)}`);
