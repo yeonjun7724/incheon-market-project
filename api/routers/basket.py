@@ -3,7 +3,6 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from core.optimizer import optimize_basket, basket_summary
 from core.items import load_items
-from core.db_items import load_db_items
 
 router = APIRouter(prefix="/basket", tags=["basket"])
 
@@ -17,9 +16,7 @@ class BasketReq(BaseModel):
 
 @router.post("/optimize")
 def optimize(req: BasketReq):
-    items = load_db_items()
-    if items.empty:
-        items = load_items()   # DB 미연결 또는 데이터 없을 때 시드 폴백
+    items = load_items()
     basket = optimize_basket(items, req.budget, req.household, req.pref, req.use_market)
     cols = [c for c in ["code", "name", "category", "unit", "emoji",
                         "unit_price", "qty", "line_total"] if c in basket.columns]

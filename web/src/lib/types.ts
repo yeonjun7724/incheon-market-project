@@ -70,8 +70,3 @@ export interface DailyPrice {
   소매가: number | null;
   kamis_unit: string | null;
 }
-
-export interface ItemSuggestion {
-  item_key: string;
-  category: string;
-}
