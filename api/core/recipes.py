@@ -203,12 +203,12 @@ def recommend_routes(ingredients, items_df, stores_df, home) -> dict:
                       key=lambda x: _haversine(home[0], home[1], x[0]["lat"], x[0]["lng"]))
         b_assign[m["name"]] = cand[0][0]
 
-    # C) 최소경유 — 한 가게에서 다 사기(가장 싼 단일 가게)
-    single_costs = []
-    for _, sr in stores_df.iterrows():
-        tot = sum(store_item_price(sr["id"], sr["type"], m) for m in metas)
-        single_costs.append((sr, tot))
-    best_single = min(single_costs, key=lambda x: x[1])[0]
+    # C) 최소경유 — 1개 가게에서 다 사기(가장 가까운 단일 가게)
+    # 경유 수 최소(1곳) + 거리 최소 → 현위치에서 가장 가까운 단일 가게
+    best_single = min(
+        stores_df.iterrows(),
+        key=lambda kv: _haversine(home[0], home[1], kv[1]["lat"], kv[1]["lng"]),
+    )[1]
     c_assign = {m["name"]: best_single for m in metas}
 
     return {
