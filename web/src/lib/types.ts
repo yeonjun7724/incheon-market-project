@@ -11,6 +11,7 @@ export interface Store {
   lng: number;
   certified?: boolean;
   desc?: string;
+  address?: string;
   distance_m?: number;
 }
 
@@ -61,3 +62,11 @@ export interface Report {
 
 export type PanelKey =
   | null | "search" | "cart" | "stores" | "checklist" | "report" | "favorites";
+
+export interface DailyPrice {
+  gds_lclsf_nm: string;
+  item_key: string;
+  중앙값: number | null;
+  소매가: number | null;
+  kamis_unit: string | null;
+}
