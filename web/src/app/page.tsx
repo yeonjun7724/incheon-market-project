@@ -16,42 +16,29 @@ import { useState } from "react";
 
 const MapCanvas = dynamic(() => import("@/components/map/MapCanvas"), { ssr: false });
 
-const SHEET_TITLES: Record<string, string> = {
+const TITLES: Record<string, string> = {
   search:    "⚙️ 장보기 조건 설정",
   cart:      "🛍️ 장바구니 · AI 에이전트",
+  checklist: "🧾 상점별 체크리스트",
   report:    "📝 가격 제보",
   favorites: "⭐ 자주 가는 가게 · 자주 사는 품목",
-};
-
-const SIDEBAR_TITLES: Record<string, string> = {
-  stores:    "🏪 추천 경로",
-  checklist: "🧾 상점별 체크리스트",
 };
 
 export default function Home() {
   const { panel, setPanel, routePlans, routeChoice, setRouteChoice, setRoutePlans } = useApp();
   const [priceLayerOn, setPriceLayerOn] = useState(false);
 
+  // 추천 경로가 있고, (경로 패널이 열렸거나 경로가 선택된 경우) → 왼쪽 사이드바
   const hasRoutes = Object.keys(routePlans).length > 0;
+  const showLeftPanel = hasRoutes && (panel === "stores" || routeChoice !== null);
 
-  // 왼쪽 사이드바: 추천상점·체크리스트 패널, 또는 장보기 진행 중
-  const showSidebar =
-    panel === "stores" ||
-    panel === "checklist" ||
-    (panel === null && hasRoutes && routeChoice !== null);
+  // 바텀 시트: stores 패널은 왼쪽 사이드바로 이동했으므로 제외
+  const showBottomSheet = panel !== null && panel !== "stores";
 
-  const sidebarTitle =
-    panel === "checklist" ? SIDEBAR_TITLES["checklist"] : SIDEBAR_TITLES["stores"];
-
-  // 바텀 시트: 조건설정·장바구니·제보·즐겨찾기
-  const isSheetPanel = panel === "search" || panel === "cart" || panel === "report" || panel === "favorites";
-
-  function closeSidebar() {
-    if (panel === "stores" || panel === null) {
-      setRouteChoice(null);
-      setRoutePlans({});
-    }
-    setPanel(null);
+  function closeLeftPanel() {
+    setRouteChoice(null);
+    setRoutePlans({});
+    if (panel === "stores") setPanel(null);
   }
 
   return (
@@ -65,12 +52,12 @@ export default function Home() {
         />
         <BottomNav />
 
-        {/* ── 왼쪽 사이드바: 추천상점 · 체크리스트 ── */}
+        {/* ── 왼쪽 사이드바 (추천 경로 / 장보기 중) ── */}
         <div
           className={`fixed left-3 top-16 bottom-[88px] z-[500] w-72 flex flex-col
                       rounded-3xl shadow-2xl overflow-hidden
                       transition-all duration-300
-                      ${showSidebar
+                      ${showLeftPanel
                         ? "translate-x-0 opacity-100"
                         : "-translate-x-4 opacity-0 pointer-events-none"
                       }`}
@@ -80,28 +67,30 @@ export default function Home() {
             border: "1px solid rgba(255,255,255,0.08)",
           }}
         >
+          {/* 헤더 */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
-            <h2 className="text-[14px] font-bold text-ink1">{sidebarTitle}</h2>
+            <h2 className="text-[14px] font-bold text-ink1">🏪 추천 경로</h2>
             <button
-              onClick={closeSidebar}
+              onClick={closeLeftPanel}
               className="text-xl text-ink2 hover:text-ink1 leading-none"
             >×</button>
           </div>
 
+          {/* 내용 */}
           <div className="flex-1 overflow-y-auto px-4 py-3 [scrollbar-width:thin]">
-            {(panel === "stores" || panel === null) && <RoutePanel />}
-            {panel === "checklist" && <ChecklistPanel />}
+            <RoutePanel />
           </div>
         </div>
 
-        {/* ── 바텀 시트: 조건설정 · 장바구니 · 제보 · 즐겨찾기 (가운데) ── */}
+        {/* ── 바텀 시트 (조건설정·장바구니·체크리스트 등) ── */}
         <BottomSheet
-          open={isSheetPanel}
-          title={panel ? (SHEET_TITLES[panel] ?? "") : ""}
-          onClose={() => setPanel(null)}
+          open={showBottomSheet}
+          title={panel && panel !== "stores" ? (TITLES[panel] ?? "") : ""}
+          onClose={() => setPanel(panel)}
         >
           {panel === "search"    && <ConditionPanel />}
           {panel === "cart"      && <CartPanel />}
+          {panel === "checklist" && <ChecklistPanel />}
           {panel === "report"    && <ReportPanel />}
           {panel === "favorites" && <FavoritesPanel />}
         </BottomSheet>
