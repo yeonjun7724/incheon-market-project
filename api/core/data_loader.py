@@ -63,7 +63,7 @@ def load_stores(path: str = _CSV) -> pd.DataFrame:
     df["id"] = [f"I{i:03d}" for i in range(1, len(df) + 1)]
 
     df = df.dropna(subset=["lat", "lng"]).reset_index(drop=True)
-    return df[["id", "name", "type", "gu", "lat", "lng", "certified", "desc"]]
+    return df[["id", "name", "type", "gu", "lat", "lng", "certified", "desc", "address"]]
 
 
 def map_center(df: pd.DataFrame) -> tuple[float, float]:

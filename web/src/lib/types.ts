@@ -11,6 +11,7 @@ export interface Store {
   lng: number;
   certified?: boolean;
   desc?: string;
+  address?: string;
   distance_m?: number;
 }
 
@@ -23,6 +24,15 @@ export interface Item {
   avg_price: number;
   market_price: number;
   supermarket_price: number;
+}
+
+export interface DbItem {
+  item_key: string;
+  name: string;
+  category: string;
+  price: number;
+  unit: string;
+  price_type: "소매가" | "도매중앙값";
 }
 
 export interface Recipe {

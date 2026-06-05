@@ -1,5 +1,5 @@
 import type {
-  Store, Item, Recipe, BasketResult, RoutePlans, Report,
+  Store, Item, DbItem, Recipe, BasketResult, RoutePlans, Report,
 } from "./types";
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
@@ -26,6 +26,7 @@ export const getStores = (lat?: number, lng?: number, radius = 3000, gu?: string
 };
 
 export const getItems = () => api<Item[]>("/items");
+export const getDbItems = () => api<DbItem[]>("/items/db");
 
 export const getRecipe = (dish: string) =>
   api<Recipe>(`/recipes/${encodeURIComponent(dish)}`);
