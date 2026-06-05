@@ -10,27 +10,30 @@ export function CartPanel() {
     recipeDish, recipeIngs, setRecipe, setRoutePlans, setRouteChoice, setPanel,
   } = useApp();
 
-  const [dbItems, setDbItems]   = useState<DbItem[]>([]);
-  const [dishQ, setDishQ]       = useState("");
-  const [loading, setLoading]   = useState(false);
-  const [noRecipe, setNoRecipe] = useState(false);
-  const [search, setSearch]     = useState("");
+  const [dbItems, setDbItems]     = useState<DbItem[]>([]);
+  const [dishQ, setDishQ]         = useState("");
+  const [loading, setLoading]     = useState(false);
+  const [noRecipe, setNoRecipe]   = useState(false);
+  const [search, setSearch]       = useState("");
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
 
   useEffect(() => { getDbItems().then(setDbItems).catch(console.error); }, []);
 
-  const meta = (key: string) => dbItems.find((i) => i.item_key === key || i.name === key);
+  const meta = (key: string) =>
+    dbItems.find((i) => i.item_key === key || i.name === key);
+
+  const qty = (key: string) => quantities[key] ?? 1;
+  const changeQty = (key: string, delta: number) =>
+    setQuantities((prev) => ({ ...prev, [key]: Math.max(1, Math.min(20, (prev[key] ?? 1) + delta)) }));
 
   const addable = useMemo(() => {
     const q = search.trim().toLowerCase();
     return dbItems
       .filter((i) => !picked.includes(i.item_key))
-      .filter((i) => !q || i.name.toLowerCase().includes(q) || i.item_key.toLowerCase().includes(q) || i.category.toLowerCase().includes(q));
+      .filter((i) => !q || i.name.includes(q) || i.item_key.includes(q) || i.category.includes(q));
   }, [dbItems, picked, search]);
 
-  const totalPrice = picked.reduce((s, key) => {
-    const m = meta(key);
-    return s + (m?.price ?? 0);
-  }, 0);
+  const totalPrice = picked.reduce((s, key) => s + (meta(key)?.price ?? 0) * qty(key), 0);
 
   async function searchRecipe() {
     if (!dishQ.trim()) return;
@@ -100,7 +103,7 @@ export function CartPanel() {
         </div>
       )}
 
-      {/* 품목 검색 추가 */}
+      {/* 품목 검색 */}
       <div>
         <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink3">➕ 추가로 담을 품목</p>
         <input
@@ -143,38 +146,62 @@ export function CartPanel() {
             {picked.map((key) => {
               const m = meta(key);
               const fav = favItems.includes(key);
+              const q = qty(key);
+              const lineTotal = (m?.price ?? 0) * q;
+
               return (
-                <div key={key} className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5">
+                <div key={key} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2">
+                  {/* 이름·단위 */}
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 text-[13px] font-bold">
-                      {fav && <span className="text-[#f5c84b]">★</span>}
-                      {m?.name ?? key}
+                    <div className="flex items-center gap-1 text-[13px] font-bold leading-tight">
+                      {fav && <span className="text-[#f5c84b] text-[11px]">★</span>}
+                      <span className="truncate">{m?.name ?? key}</span>
                     </div>
-                    <div className="text-[11px] text-ink3">{m?.unit} · {m?.category}</div>
+                    <div className="text-[10px] text-ink3">{m?.unit} · {m?.category}</div>
                   </div>
-                  {m ? (
-                    <div className="text-right font-mono shrink-0">
-                      <div className="text-[14px] font-bold text-accent3">{m.price.toLocaleString()}원</div>
-                      <div className="text-[10px] text-ink3">{m.price_type}</div>
-                    </div>
-                  ) : (
-                    <div className="text-[12px] text-ink3 shrink-0">가격 정보 없음</div>
-                  )}
-                  <button onClick={() => toggleFavItem(key)} title="자주 사는 품목"
-                    className="text-lg text-ink3 hover:text-[#f5c84b]">{fav ? "★" : "☆"}</button>
-                  <button onClick={() => togglePick(key)} className="text-ink3 hover:text-red-400">✕</button>
+
+                  {/* 수량 조절 */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => changeQty(key, -1)}
+                      className="flex h-6 w-6 items-center justify-center rounded border border-white/10 text-[14px] text-ink2 hover:bg-white/5 leading-none">
+                      −
+                    </button>
+                    <span className="w-5 text-center text-[13px] font-mono">{q}</span>
+                    <button onClick={() => changeQty(key, +1)}
+                      className="flex h-6 w-6 items-center justify-center rounded border border-white/10 text-[14px] text-ink2 hover:bg-white/5 leading-none">
+                      +
+                    </button>
+                  </div>
+
+                  {/* 가격 */}
+                  <div className="text-right shrink-0 min-w-[64px]">
+                    {m ? (
+                      <>
+                        <div className="text-[13px] font-bold text-accent3 font-mono">{lineTotal.toLocaleString()}원</div>
+                        {q > 1 && <div className="text-[10px] text-ink3">{m.price.toLocaleString()}×{q}</div>}
+                      </>
+                    ) : (
+                      <div className="text-[11px] text-ink3">정보없음</div>
+                    )}
+                  </div>
+
+                  <button onClick={() => toggleFavItem(key)} className="text-[16px] text-ink3 hover:text-[#f5c84b] shrink-0">{fav ? "★" : "☆"}</button>
+                  <button onClick={() => togglePick(key)} className="text-ink3 hover:text-red-400 text-sm shrink-0">✕</button>
                 </div>
               );
             })}
 
-            <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
-              <div className="text-[10px] uppercase tracking-wide text-ink3 mb-1">예상 합계</div>
-              <div className="font-mono text-2xl font-bold text-accent2">{totalPrice.toLocaleString()}원</div>
+            {/* 합계 */}
+            <div className="mt-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5">
+              <div className="flex items-baseline justify-between">
+                <div className="text-[10px] uppercase tracking-wide text-ink3">예상 합계</div>
+                <div className="font-mono text-xl font-bold text-accent2">{totalPrice.toLocaleString()}원</div>
+              </div>
               <div className="text-[10px] text-ink3 mt-0.5">소매가 기준 · 없으면 도매 중앙값</div>
             </div>
 
             <button onClick={goRoute}
-              className="mt-2 w-full rounded-xl border border-accent/40 bg-accent/15 py-3 font-bold text-accent hover:bg-accent/25">
+              className="mt-1 w-full rounded-xl border border-accent/40 bg-accent/15 py-3 font-bold text-accent hover:bg-accent/25">
               🧭  추천 경로 보기
             </button>
           </div>
