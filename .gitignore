@@ -20,3 +20,4 @@ venv/
 
 # API 테스트용 샘플 데이터
 api/*.csv
+web/tsconfig.tsbuildinfo
