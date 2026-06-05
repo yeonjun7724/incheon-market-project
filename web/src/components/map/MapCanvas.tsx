@@ -9,7 +9,7 @@ import { getStores } from "@/lib/api";
 import type { Store } from "@/lib/types";
 import { useRef } from "react";
 import PriceLayer from "./PriceLayer";
-import type { MapLayerMouseEvent } from "mapbox-gl";
+import type { MapLayerMouseEvent, GeoJSONSource } from "mapbox-gl";
 
 type Tooltip = { name: string; address: string; x: number; y: number };
 
@@ -73,7 +73,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
     const feats = (e as unknown as MapLayerMouseEvent).features;
     const cl = feats?.find((f) => f.layer?.id === "clusters");
     if (cl && map) {
-      const src = map.getSource("stores") as mapboxgl.GeoJSONSource;
+      const src = map.getSource("stores") as GeoJSONSource;
       // @ts-expect-error mapbox typing
       src.getClusterExpansionZoom(cl.properties?.cluster_id, (err: unknown, zoom: number) => {
         if (err) return;
