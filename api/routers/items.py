@@ -16,7 +16,9 @@ def items():
 def items_db():
     """
     daily_prices DB에서 item_key 기준으로 품목 목록 반환.
-    소매가 우선, 없으면 중앙값(도매 경매가 원/kg) 사용.
+    - name: item_key 사용 (소분류 원문 대신 정제된 품목명)
+    - 소매가 우선, 없으면 중앙값
+    - 소매가 기준 오름차순 정렬 후 item_key별 첫 행 선택 → 소매(소량) 가격 선택
     DB 없거나 비어있으면 빈 리스트 반환.
     """
     try:
@@ -24,19 +26,20 @@ def items_db():
         from sqlalchemy import text
         engine = get_engine()
         with engine.connect() as conn:
+            # DISTINCT ON으로 item_key별 소매가 가장 작은 행 1개만 선택
+            # 소매가 ASC → 소량(소매) 단위 데이터가 대량(도매) 단위보다 먼저 선택됨
             df = pd.read_sql(text("""
-                SELECT
+                SELECT DISTINCT ON (item_key)
                     item_key,
-                    gds_lclsf_nm   AS category,
-                    gds_sclsf_nm   AS name,
+                    gds_lclsf_nm  AS category,
                     소매가,
                     kamis_unit,
-                    중앙값,
-                    MAX(scsbd_dt)  AS scsbd_dt
+                    중앙값
                 FROM daily_prices
                 WHERE item_key IS NOT NULL AND item_key != ''
-                GROUP BY item_key, gds_lclsf_nm, gds_sclsf_nm, 소매가, kamis_unit, 중앙값
-                ORDER BY gds_lclsf_nm, item_key
+                ORDER BY item_key,
+                    CASE WHEN 소매가 IS NOT NULL THEN 0 ELSE 1 END,
+                    소매가 ASC NULLS LAST
             """), conn)
     except Exception:
         return []
@@ -44,24 +47,20 @@ def items_db():
     if df.empty:
         return []
 
-    # item_key 기준으로 중복 제거: 소매가 있는 행 우선
     df["price"] = df["소매가"].where(df["소매가"].notna(), df["중앙값"])
     df["unit"] = df["kamis_unit"].where(df["kamis_unit"].notna(), "원/kg")
     df["price_type"] = df["소매가"].apply(lambda x: "소매가" if pd.notna(x) else "도매중앙값")
-
-    # item_key 별 소매가 우선 1행만
-    df = df.sort_values("소매가", ascending=False, na_position="last")
-    df = df.drop_duplicates(subset="item_key", keep="first")
     df = df.dropna(subset=["price"])
+    df = df.sort_values("category")
 
-    result = []
-    for _, row in df.iterrows():
-        result.append({
+    return [
+        {
             "item_key":   row["item_key"],
-            "name":       row["name"] or row["item_key"],
+            "name":       row["item_key"],   # 정제된 품목명 사용
             "category":   row["category"] or "",
             "price":      round(float(row["price"]), 0),
             "unit":       row["unit"],
             "price_type": row["price_type"],
-        })
-    return result
+        }
+        for _, row in df.iterrows()
+    ]

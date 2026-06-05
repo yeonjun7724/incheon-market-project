@@ -11,7 +11,7 @@ const RADII = [
 const PREFS = ["균형", "저단백", "고단백", "채식"];
 
 export function ConditionPanel() {
-  const { radiusM, setRadius, budget, household, pref, useMarket, setCondition } = useApp();
+  const { radiusM, setRadius, budget, household, pref, useMarket, setCondition, picked, togglePick } = useApp();
   const [result, setResult] = useState<BasketResult | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -94,12 +94,26 @@ export function ConditionPanel() {
           <p className="text-[11px] uppercase tracking-wide text-ink3">추천 장바구니 ({result.summary.n_items}개)</p>
           <p className="font-mono text-xl font-bold text-accent2">{result.summary.total.toLocaleString()}원</p>
           <div className="mt-2 space-y-1">
-            {result.items.map((it) => (
-              <div key={it.code} className="flex items-center justify-between text-[13px]">
-                <span>{it.emoji} {it.name} <span className="text-ink3">×{it.qty}</span></span>
-                <span className="font-mono text-ink2">{it.line_total.toLocaleString()}원</span>
-              </div>
-            ))}
+            {result.items.map((it) => {
+              const inCart = picked.includes(it.name);
+              return (
+                <div key={it.code} className="flex items-center justify-between text-[13px]">
+                  <span>{it.emoji} {it.name} <span className="text-ink3">×{it.qty}</span></span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-ink2">{it.line_total.toLocaleString()}원</span>
+                    <button
+                      onClick={() => togglePick(it.name)}
+                      className={`rounded px-1.5 py-0.5 text-[11px] border transition ${
+                        inCart
+                          ? "border-accent3/40 bg-accent3/10 text-accent3"
+                          : "border-white/10 text-ink3 hover:border-accent3/40 hover:text-accent3"
+                      }`}>
+                      {inCart ? "✓ 담김" : "+ 담기"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
