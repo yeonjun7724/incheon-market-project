@@ -36,7 +36,7 @@ function Sheet({
     <div
       className={`fixed inset-x-0 bottom-0 z-[700] transition-transform duration-300 ease-out
         ${open ? "translate-y-0" : "translate-y-full"}`}
-      style={{ maxHeight: "75dvh" }}
+      style={{ maxHeight: "82dvh" }}
     >
       <div
         className="flex flex-col rounded-t-3xl overflow-hidden"
@@ -45,7 +45,7 @@ function Sheet({
           backdropFilter: "blur(24px)",
           border: "1px solid rgba(255,255,255,0.08)",
           borderBottom: "none",
-          maxHeight: "75dvh",
+          maxHeight: "82dvh",
         }}
       >
         {/* 핸들 + 헤더 */}
@@ -59,8 +59,11 @@ function Sheet({
             </button>
           </div>
         </div>
-        {/* 내용 */}
-        <div className="flex-1 overflow-y-auto px-4 pb-6 [scrollbar-width:thin]">
+        {/* 내용 — 하단에 BottomNav(약 64px) + safe-area 만큼 패딩 확보 */}
+        <div
+          className="flex-1 overflow-y-auto px-4 [scrollbar-width:thin]"
+          style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom, 12px) + 8px)" }}
+        >
           {children}
         </div>
       </div>

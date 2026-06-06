@@ -4,10 +4,10 @@ import { useApp } from "@/lib/store";
 import { recommendRoutes, getMapboxRoute } from "@/lib/api";
 import type { RouteWithMapbox } from "@/lib/types";
 
-const STRAT: Record<string, { icon: string; label: string; desc: string }> = {
-  최저예산: { icon: "💰", label: "최저예산", desc: "전통시장 우선 • 가장 저렴하게" },
-  최소거리: { icon: "📍", label: "최소거리", desc: "가까운 가게 순 • 동선 최소화" },
-  최소경유: { icon: "🧭", label: "최소경유", desc: "한 가게에서 최대한 • 경유지 최소" },
+const STRAT: Record<string, { icon: string; label: string; desc: string; color: string }> = {
+  최저예산: { icon: "💰", label: "최저예산", desc: "전통시장 우선 • 가장 저렴하게", color: "#f5a623" },
+  최소거리: { icon: "📍", label: "최소거리", desc: "가까운 가게 순 • 동선 최소화",  color: "#63b7ff" },
+  최소경유: { icon: "🧭", label: "최소경유", desc: "한 가게에서 최대한 • 경유지 최소", color: "#4ade80" },
 };
 
 export function RoutePanel() {
@@ -94,39 +94,50 @@ export function RoutePanel() {
         const shopMin  = p.n_stops * 10;
         const totalMin = walkMin + shopMin;
         const distKm   = mb ? (mb.distance_m / 1000).toFixed(1) : (p.distance_m / 1000).toFixed(1);
-        const s = STRAT[k] ?? { icon: "🗺️", label: k, desc: "" };
+        const s   = STRAT[k] ?? { icon: "🗺️", label: k, desc: "", color: "#63b7ff" };
+        const col = s.color;  // 전략별 고유 색상
 
         return (
           <button key={k} onClick={() => handleChoose(k)}
-            className={`w-full rounded-2xl border p-4 text-left transition active:scale-[0.98]
-              ${sel
-                ? "border-[#63b7ff]/40 bg-[#63b7ff]/8"
-                : "border-white/8 bg-white/3 hover:bg-white/6"}`}>
+            className="w-full rounded-2xl border p-4 text-left transition active:scale-[0.98]"
+            style={sel
+              ? { borderColor: `${col}50`, background: `${col}10` }
+              : { borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }
+            }>
 
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <span className="text-[20px]">{s.icon}</span>
+                {/* 전략 색상 인디케이터 점 */}
+                <span
+                  className="text-[20px] relative"
+                  style={{ filter: `drop-shadow(0 0 4px ${col}80)` }}
+                >{s.icon}</span>
                 <div>
                   <div className="text-[14px] font-extrabold text-white">{s.label}</div>
                   <div className="text-[10px] text-white/40">{s.desc}</div>
                 </div>
               </div>
               {sel && (
-                <span className="rounded-full bg-[#63b7ff]/20 border border-[#63b7ff]/30
-                                 px-2 py-0.5 text-[10px] font-bold text-[#63b7ff]">선택</span>
+                <span
+                  className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                  style={{ background: `${col}25`, border: `1px solid ${col}40`, color: col }}
+                >선택</span>
               )}
             </div>
 
             {/* 지표 4개 */}
             <div className="grid grid-cols-4 gap-1.5">
               {[
-                { v: `${(p.budget/1000).toFixed(0)}천원`, l: "예산" },
+                { v: `${p.budget.toLocaleString()}원`, l: "예산" },
                 { v: `${distKm}km`, l: "거리" },
                 { v: `${walkMin}분`, l: mb ? "이동(실측)" : "이동(추정)" },
                 { v: `${totalMin}분`, l: `총(+구입${shopMin}분)` },
               ].map(({ v, l }) => (
                 <div key={l} className="rounded-xl bg-white/5 py-2 text-center">
-                  <div className="text-[13px] font-bold font-mono text-[#4ade80]">{v}</div>
+                  <div
+                    className="text-[13px] font-bold font-mono"
+                    style={{ color: col }}
+                  >{v}</div>
                   <div className="text-[9px] text-white/35 leading-tight mt-0.5">{l}</div>
                 </div>
               ))}
@@ -138,8 +149,10 @@ export function RoutePanel() {
                 <div className="text-[10px] font-bold uppercase tracking-wide text-white/30">경유 상점</div>
                 {p.stops.map((s, i) => (
                   <div key={s.id} className="flex items-center gap-2">
-                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full
-                                    bg-[#ff5470]/80 text-[10px] font-black text-white">{i+1}</div>
+                    <div
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-white"
+                      style={{ background: col }}
+                    >{i+1}</div>
                     <span className="text-[12px] text-white/80 truncate">{s.name}</span>
                     <span className="text-[10px] text-white/30 shrink-0">{s.type}</span>
                   </div>

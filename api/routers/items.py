@@ -1,14 +1,77 @@
-"""GET /items — DB 기반 품목. items_seed.csv 제거됨."""
+"""GET /items — DB 기반 품목. 도매가 → 소매가 변환 + 가격 없으면 AI 추론."""
+import os
+import json
 import pandas as pd
 from fastapi import APIRouter
 from core.items import load_items
 
 router = APIRouter(prefix="/items", tags=["items"])
 
+_OPENAI_KEY   = os.getenv("OPENAI_API_KEY", "")
+_OPENAI_MODEL = "gpt-4o-mini"
+
+# 도매→소매 변환 계수 (카테고리별)
+_RETAIL_FACTOR: dict[str, float] = {
+    "채소류":   1.55,
+    "과실류":   1.50,
+    "곡류":     1.40,
+    "축산물":   1.50,
+    "수산물":   1.60,
+    "특용작물류": 1.45,
+    "가공식품":  1.30,
+}
+_RETAIL_FACTOR_DEFAULT = 1.50   # 카테고리 미매핑 시
+
+
+def _wholesale_to_retail(price: float, category: str) -> int:
+    """도매 중앙값 → 소매가 추정."""
+    factor = _RETAIL_FACTOR.get(category, _RETAIL_FACTOR_DEFAULT)
+    return round(price * factor / 10) * 10   # 10원 단위 반올림
+
+
+_INFERRED_CACHE: dict[str, int] = {}   # item_key → 추론 가격 (런타임 캐시)
+
+def _infer_price_with_ai(item_key: str, category: str, unit: str) -> int | None:
+    """OpenAI로 한국 소매가 추론. 실패 시 None."""
+    if not _OPENAI_KEY:
+        return None
+    if item_key in _INFERRED_CACHE:
+        return _INFERRED_CACHE[item_key]
+    try:
+        import openai
+        client = openai.OpenAI(api_key=_OPENAI_KEY)
+        resp = client.chat.completions.create(
+            model=_OPENAI_MODEL,
+            max_tokens=60,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "당신은 한국 식품 가격 전문가입니다. "
+                        "품목명과 단위를 주면 현재 한국 일반 마트 소매가격을 숫자(원)로만 답하세요. "
+                        "숫자만, 단위 없이, 예: 2500"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"품목: {item_key}, 분류: {category}, 단위: {unit}",
+                },
+            ],
+            response_format={"type": "text"},
+        )
+        raw = resp.choices[0].message.content.strip().replace(",", "").replace("원", "")
+        price = int(float(raw))
+        if 50 <= price <= 500000:
+            _INFERRED_CACHE[item_key] = price
+            return price
+    except Exception:
+        pass
+    return None
+
 
 @router.get("")
 def items():
-    """DB(daily_prices)에서 품목 반환. DB 없으면 빈 리스트."""
+    """DB 기반 품목 반환. items_seed.csv 미사용."""
     df = load_items()
     if df.empty:
         return []
@@ -18,8 +81,10 @@ def items():
 @router.get("/db")
 def items_db():
     """
-    daily_prices DB에서 item_key 기준 품목 목록.
-    소매가 우선, 없으면 도매중앙값.
+    daily_prices DB → 소매가 기준 품목 목록.
+    - 소매가(KAMIS) 있으면 그대로 사용
+    - 없으면 도매 중앙값 × 1.4~1.6 소매가 변환
+    - 둘 다 없으면 OpenAI로 추론
     """
     try:
         from core.db import get_engine
@@ -45,19 +110,41 @@ def items_db():
     if df.empty:
         return []
 
-    df["price"]      = df["소매가"].where(df["소매가"].notna(), df["중앙값"])
-    df["unit"]       = df["kamis_unit"].fillna("원/kg")
-    df["price_type"] = df["소매가"].apply(lambda x: "소매가" if pd.notna(x) else "도매중앙값")
-    df = df.dropna(subset=["price"]).sort_values("category")
+    df["unit"]  = df["kamis_unit"].fillna("원/kg")
+    df["category"] = df["category"].fillna("기타")
 
-    return [
-        {
-            "item_key":   row["item_key"],
-            "name":       row["item_key"],
-            "category":   row["category"] or "",
-            "price":      round(float(row["price"]), 0),
-            "unit":       row["unit"],
-            "price_type": row["price_type"],
-        }
-        for _, row in df.iterrows()
-    ]
+    result = []
+    for _, row in df.iterrows():
+        item_key = row["item_key"]
+        category = row["category"]
+        unit     = row["unit"]
+        소매가    = row.get("소매가")
+        중앙값    = row.get("중앙값")
+
+        # 가격 결정 순서
+        if pd.notna(소매가) and 소매가 > 0:
+            price      = round(float(소매가), 0)
+            price_type = "소매가"
+        elif pd.notna(중앙값) and 중앙값 > 0:
+            price      = _wholesale_to_retail(float(중앙값), category)
+            price_type = "도매→소매추정"
+        else:
+            # AI 추론
+            inferred = _infer_price_with_ai(item_key, category, unit)
+            if inferred:
+                price      = float(inferred)
+                price_type = "AI추론"
+            else:
+                continue   # 가격 없으면 목록에서 제외
+
+        result.append({
+            "item_key":   item_key,
+            "name":       item_key,
+            "category":   category,
+            "price":      price,
+            "unit":       unit,
+            "price_type": price_type,
+        })
+
+    result.sort(key=lambda x: x["category"])
+    return result

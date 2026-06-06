@@ -84,6 +84,14 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
 
   const plan = routeChoice ? routePlans[routeChoice] : null;
 
+  // 전략별 색상 (경로 라인 + 경유지 마커)
+  const STRAT_COLOR: Record<string, string> = {
+    최저예산: "#f5a623",   // 주황 — 💰 예산 절약
+    최소거리: "#63b7ff",   // 파랑 — 📍 가까운 거리
+    최소경유: "#4ade80",   // 초록 — 🧭 경유 최소
+  };
+  const routeColor = routeChoice ? (STRAT_COLOR[routeChoice] ?? "#ff5470") : "#ff5470";
+
   function handleMouseMove(e: MapMouseEvent) {
     const map = mapRef.current;
     if (!map) return;
@@ -202,7 +210,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
           <Source id="route" type="geojson" data={routeGeoData}>
             <Layer id="route-line" type="line"
               paint={{
-                "line-color": "#ff5470", "line-width": 5, "line-opacity": 0.88,
+                "line-color": routeColor, "line-width": 5, "line-opacity": 0.88,
                 "line-dasharray": mapboxRoute ? [1] : [2, 2],
               }}
             />
@@ -214,7 +222,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
           <Marker key={`stop-${s.id}`} longitude={s.lng} latitude={s.lat} anchor="center">
             <div style={{
               width: 28, height: 28, borderRadius: "50%",
-              background: "#ff5470", color: "#fff",
+              background: routeColor, color: "#fff",
               display: "flex", alignItems: "center", justifyContent: "center",
               fontWeight: 800, fontSize: 13,
               border: "2.5px solid #fff",

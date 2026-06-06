@@ -122,14 +122,32 @@ def load_items() -> pd.DataFrame:
             "avg_price", "market_price", "supermarket_price",
         ])
 
-    df["avg_price"]         = df["소매가"].where(df["소매가"].notna(), df["중앙값"]).fillna(0).astype(int)
+    df["unit"]     = df["kamis_unit"].fillna("원/kg")
+    df["category"] = df["category"].fillna("기타")
+
+    # 도매→소매 변환 계수
+    _FACTOR = {
+        "채소류": 1.55, "과실류": 1.50, "곡류": 1.40,
+        "축산물": 1.50, "수산물": 1.60, "특용작물류": 1.45,
+        "가공식품": 1.30,
+    }
+
+    def _retail(row) -> int:
+        소매가 = row.get("소매가")
+        중앙값 = row.get("중앙값")
+        if pd.notna(소매가) and 소매가 > 0:
+            return int(소매가)
+        if pd.notna(중앙값) and 중앙값 > 0:
+            factor = _FACTOR.get(row["category"], 1.50)
+            return round(int(중앙값) * factor / 10) * 10
+        return 0
+
+    df["avg_price"]         = df.apply(_retail, axis=1)
     df["market_price"]      = (df["avg_price"] * 0.92).astype(int)
-    df["supermarket_price"] = (df["avg_price"] * 1.05).astype(int)
-    df["unit"]              = df["kamis_unit"].fillna("원/kg")
-    df["emoji"]             = df["item_key"].map(EMOJI_MAP).fillna("🛒")
-    df["code"]              = df["item_key"]
-    df["name"]              = df["item_key"]
-    df["category"]          = df["category"].fillna("기타")
+    df["supermarket_price"] = (df["avg_price"] * 1.08).astype(int)
+    df["emoji"]    = df["item_key"].map(EMOJI_MAP).fillna("🛒")
+    df["code"]     = df["item_key"]
+    df["name"]     = df["item_key"]
 
     return df[["code", "name", "category", "unit", "emoji",
                "avg_price", "market_price", "supermarket_price"]]
