@@ -16,8 +16,9 @@ export function MapTools({ onTogglePriceLayer, priceLayerOn }: {
 }) {
   const { main } = useMap();
   const { setLoc, setPanel, toggleMapStyle } = useApp();
-  const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [syncing, setSyncing]       = useState(false);
+  const [syncMsg, setSyncMsg]       = useState<string | null>(null);
+  const [syncOk, setSyncOk]         = useState(true);
 
   function goMyLocation() {
     if (!navigator.geolocation) return;
@@ -25,7 +26,7 @@ export function MapTools({ onTogglePriceLayer, priceLayerOn }: {
       (pos) => {
         const { latitude, longitude } = pos.coords;
         setLoc(latitude, longitude);
-        main?.flyTo({ center: [longitude, latitude], zoom: 14, duration: 800 });
+        main?.flyTo({ center: [longitude, latitude], zoom: 15, duration: 800 });
       },
       () => alert("위치 권한을 허용해 주세요."),
       { enableHighAccuracy: true, timeout: 8000 },
@@ -38,63 +39,87 @@ export function MapTools({ onTogglePriceLayer, priceLayerOn }: {
 
   async function handleSync() {
     setSyncing(true);
-    setSyncResult(null);
+    setSyncMsg(null);
     try {
       const res = await fetch(`${BASE}/admin/sync-prices`, { method: "POST" });
-      if (!res.ok) {
-        setSyncResult(`❌ 서버 오류 (${res.status})`);
-        return;
-      }
       const data = await res.json();
-      if (data.ok) {
-        setSyncResult(`✅ ${data.rows ?? 0}행 갱신`);
-      } else {
-        setSyncResult(`❌ ${data.error ?? "갱신 실패"}`);
-      }
+      setSyncOk(!!data.ok);
+      setSyncMsg(data.ok
+        ? `✅ ${data.rows ?? 0}행 갱신`
+        : `❌ ${data.message ?? "실패"}`
+      );
     } catch {
-      setSyncResult("❌ 연결 실패");
+      setSyncOk(false);
+      setSyncMsg("❌ 연결 실패");
     } finally {
       setSyncing(false);
-      setTimeout(() => setSyncResult(null), 3000);
+      setTimeout(() => setSyncMsg(null), 4000);
     }
   }
 
-  const btn = "flex h-11 w-11 items-center justify-center rounded-xl glass text-[18px] " +
-              "text-ink1 shadow-lg transition hover:bg-white/10";
-  const btnActive = btn + " ring-2 ring-yellow-400";
+  const btn = `flex h-10 w-10 items-center justify-center rounded-2xl text-[18px]
+               text-white shadow-lg transition active:scale-90 hover:bg-white/15`;
 
   return (
-    <div className="fixed right-4 top-1/2 z-[1000] flex -translate-y-1/2 flex-col gap-2">
-      <button className={btn} title="현위치" onClick={goMyLocation}>◎</button>
-      <button className={btn} title="자주 가는 가게 / 즐겨찾기" onClick={() => setPanel("favorites")}>📌</button>
-      <button className={btn} title="지도 스타일 전환" onClick={toggleMapStyle}>🗂</button>
-      <button className={btn} title="인천 전체 보기" onClick={fitIncheon}>⛶</button>
+    <div
+      className="fixed right-3 z-[1000] flex flex-col gap-2"
+      style={{
+        top: "calc(max(12px, env(safe-area-inset-top)) + 52px)",
+        bottom: "calc(72px + env(safe-area-inset-bottom, 0px))",
+        justifyContent: "flex-start",
+        paddingTop: 4,
+      }}
+    >
+      {[
+        { icon: "◎", title: "현위치", onClick: goMyLocation },
+        { icon: "📌", title: "즐겨찾기", onClick: () => setPanel("favorites") },
+        { icon: "🗂", title: "지도 스타일", onClick: toggleMapStyle },
+        { icon: "⛶", title: "인천 전체", onClick: fitIncheon },
+      ].map(({ icon, title, onClick }) => (
+        <button key={title}
+          className={btn}
+          style={{ background: "rgba(8,15,30,0.82)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.08)" }}
+          title={title}
+          onClick={onClick}
+        >{icon}</button>
+      ))}
+
+      {/* 가격 레이어 */}
       <button
-        className={priceLayerOn ? btnActive : btn}
-        title="가격 히트맵 ON/OFF"
+        className={btn}
+        style={{
+          background: priceLayerOn ? "rgba(245,196,75,0.2)" : "rgba(8,15,30,0.82)",
+          backdropFilter: "blur(12px)",
+          border: priceLayerOn ? "1px solid rgba(245,196,75,0.5)" : "1px solid rgba(255,255,255,0.08)",
+        }}
+        title="가격 레이어"
         onClick={onTogglePriceLayer}
       >💰</button>
+
+      {/* 다운로드 */}
       <a
         href={`${BASE}/admin/prices/download-zip`}
         download="daily_prices.zip"
         className={btn}
-        title="가격 데이터 ZIP 다운로드"
+        style={{ background: "rgba(8,15,30,0.82)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.08)" }}
+        title="데이터 다운로드"
       >⬇︎</a>
 
-      {/* 가격 데이터 수동 갱신 */}
+      {/* 동기화 */}
       <div className="relative">
         <button
-          className={btn + (syncing ? " opacity-60 cursor-not-allowed" : "")}
+          className={btn + (syncing ? " opacity-50 cursor-not-allowed" : "")}
+          style={{ background: "rgba(8,15,30,0.82)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.08)" }}
           title="가격 데이터 갱신"
           onClick={handleSync}
           disabled={syncing}
-        >
-          {syncing ? "⏳" : "🔄"}
-        </button>
-        {syncResult && (
-          <div className="absolute right-14 top-1/2 -translate-y-1/2 whitespace-nowrap
-                          rounded-lg bg-black/80 px-3 py-1.5 text-xs text-white shadow-lg">
-            {syncResult}
+        >{syncing ? "⏳" : "🔄"}</button>
+
+        {syncMsg && (
+          <div className={`absolute right-12 top-1/2 -translate-y-1/2 whitespace-nowrap
+                           rounded-xl px-3 py-1.5 text-xs text-white shadow-xl
+                           ${syncOk ? "bg-green-900/90" : "bg-red-900/90"}`}>
+            {syncMsg}
           </div>
         )}
       </div>

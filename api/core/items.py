@@ -1,24 +1,135 @@
-"""품목 시드 로더 — 기존 app.py 인라인 ITEMS_SEED를 CSV(data/items_seed.csv)에서 로드."""
+"""
+core/items.py
+품목 로더 — items_seed.csv 제거, DB 전용으로 전환.
+DB 없을 때 빈 DataFrame 반환 (앱은 항상 동작).
+"""
 import os
 import pandas as pd
-from core.price_api import apply_live_prices
 
-_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_CSV = os.path.join(_ROOT, "data", "items_seed.csv")
+# 이모지 매핑 (item_key 기준)
+EMOJI_MAP: dict[str, str] = {
+    "계란": "🥚", "두부": "🧊", "돼지고기앞다리": "🥩", "돼지/앞다리": "🥩",
+    "닭가슴살": "🍗", "닭/닭가슴살": "🍗", "닭/육계": "🍗",
+    "콩나물": "🌱", "애호박": "🥒", "호박/애호박": "🥒",
+    "양파": "🧅", "양파/양파": "🧅",
+    "대파": "🌿", "파/대파": "🌿",
+    "배추": "🥬", "시금치": "🍃",
+    "쌀": "🍚", "감자": "🥔", "고구마": "🍠",
+    "사과": "🍎", "바나나": "🍌",
+    "참기름": "🫙", "고추장": "🌶️", "된장": "🟤", "간장": "🍶", "두유": "🥛",
+    "당면": "🍜", "마늘": "🧄", "고춧가루": "🌶️", "미역": "🌿",
+    "된장찌개": "🍲",
+}
 
-# 이모지 매핑 (기존 app.py ITEMS_SEED 기준)
-_EMOJI = {
-    "계란": "🥚", "두부": "🧊", "돼지앞다리": "🥩", "닭가슴살": "🍗",
-    "콩나물": "🌱", "애호박": "🥒", "양파": "🧅", "대파": "🌿",
-    "배추": "🥬", "시금치": "🍃", "쌀": "🍚", "감자": "🥔",
-    "고구마": "🍠", "사과": "🍎", "바나나": "🍌", "참기름": "🫙",
-    "고추장": "🌶️", "된장": "🟤", "간장": "🍶", "두유": "🥛",
+# DB item_key → 앱 재료명 별칭 (AI가 뱉는 한국어 재료명 → DB item_key 역매핑)
+# 여러 표현 → 하나의 item_key
+ALIAS_TO_KEY: dict[str, str] = {
+    # 돼지고기 계열
+    "돼지앞다리": "돼지고기앞다리",
+    "돼지고기": "돼지고기앞다리",
+    "삼겹살": "돼지고기앞다리",
+    "돼지": "돼지고기앞다리",
+    # 닭고기 계열
+    "닭가슴살": "닭가슴살",
+    "닭고기": "닭가슴살",
+    "닭": "닭가슴살",
+    # 채소
+    "파": "대파",
+    "쪽파": "대파",
+    "호박": "애호박",
+    "고구마": "고구마",
+    "감자": "감자",
+    "양배추": "배추",
+    # 양념
+    "고추가루": "고춧가루",
+    "고추 가루": "고춧가루",
+    "들기름": "참기름",
+    # 공통 표현
+    "콩나물": "콩나물",
+    "시금치": "시금치",
+    "대파": "대파",
+    "양파": "양파",
+    "쌀": "쌀",
+    "계란": "계란",
+    "달걀": "계란",
+    "두부": "두부",
+    "사과": "사과",
+    "바나나": "바나나",
+    "두유": "두유",
+    "간장": "간장",
+    "된장": "된장",
+    "고추장": "고추장",
+    "참기름": "참기름",
+    "배추": "배추",
+    "당면": "당면",
+    "마늘": "마늘",
+    "미역": "미역",
+    "고춧가루": "고춧가루",
+    "애호박": "애호박",
 }
 
 
+def normalize_ingredient(name: str) -> str:
+    """
+    AI가 반환한 재료명 → DB item_key 정규화.
+    직접 매핑 우선, 없으면 원문 반환.
+    """
+    n = name.strip()
+    if n in ALIAS_TO_KEY:
+        return ALIAS_TO_KEY[n]
+    # 부분일치 (예: '닭가슴살(200g)' → '닭가슴살')
+    for alias, key in ALIAS_TO_KEY.items():
+        if alias in n:
+            return key
+    return n
+
+
 def load_items() -> pd.DataFrame:
-    df = pd.read_csv(_CSV, encoding="utf-8-sig")
-    df["emoji"] = df["name"].map(_EMOJI).fillna("🛒")
-    # KAMIS 실시간가 반영 (키 없으면 시드 유지)
-    df, _status = apply_live_prices(df)
-    return df
+    """
+    DB(daily_prices)에서 품목 로드.
+    DB 없으면 빈 DataFrame 반환.
+    컬럼: code, name, category, unit, emoji, avg_price, market_price, supermarket_price
+    """
+    try:
+        from core.db import get_engine
+        from sqlalchemy import text
+        engine = get_engine()
+        with engine.connect() as conn:
+            df = pd.read_sql(text("""
+                SELECT DISTINCT ON (item_key)
+                    item_key,
+                    gds_lclsf_nm AS category,
+                    소매가,
+                    kamis_unit,
+                    중앙값,
+                    최저가,
+                    최고가
+                FROM daily_prices
+                WHERE item_key IS NOT NULL AND item_key != ''
+                ORDER BY item_key,
+                    CASE WHEN 소매가 IS NOT NULL THEN 0 ELSE 1 END,
+                    소매가 ASC NULLS LAST
+            """), conn)
+    except Exception:
+        return pd.DataFrame(columns=[
+            "code", "name", "category", "unit", "emoji",
+            "avg_price", "market_price", "supermarket_price",
+        ])
+
+    if df.empty:
+        return pd.DataFrame(columns=[
+            "code", "name", "category", "unit", "emoji",
+            "avg_price", "market_price", "supermarket_price",
+        ])
+
+    df["avg_price"]         = df["소매가"].where(df["소매가"].notna(), df["중앙값"]).fillna(0).astype(int)
+    df["market_price"]      = (df["avg_price"] * 0.92).astype(int)
+    df["supermarket_price"] = (df["avg_price"] * 1.05).astype(int)
+    df["unit"]              = df["kamis_unit"].fillna("원/kg")
+    df["emoji"]             = df["item_key"].map(EMOJI_MAP).fillna("🛒")
+    df["code"]              = df["item_key"]
+    df["name"]              = df["item_key"]
+    df["category"]          = df["category"].fillna("기타")
+
+    return df[["code", "name", "category", "unit", "emoji",
+               "avg_price", "market_price", "supermarket_price"]]

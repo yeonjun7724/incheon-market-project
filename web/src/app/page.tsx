@@ -4,7 +4,6 @@ import { MapProvider } from "react-map-gl/mapbox";
 import { useApp } from "@/lib/store";
 import { MapTools } from "@/components/map/MapTools";
 import { BottomNav } from "@/components/panels/BottomNav";
-import { BottomSheet } from "@/components/panels/BottomSheet";
 import { SearchBar } from "@/components/panels/SearchBar";
 import { ConditionPanel } from "@/components/panels/ConditionPanel";
 import { CartPanel } from "@/components/panels/CartPanel";
@@ -12,30 +11,129 @@ import { RoutePanel } from "@/components/panels/RoutePanel";
 import { ChecklistPanel } from "@/components/panels/ChecklistPanel";
 import { FavoritesPanel } from "@/components/panels/FavoritesPanel";
 import { ReportPanel } from "@/components/panels/ReportPanel";
+import { ReceiptPanel } from "@/components/panels/ReceiptPanel";
 import { useState } from "react";
 
 const MapCanvas = dynamic(() => import("@/components/map/MapCanvas"), { ssr: false });
 
+// 패널 제목
 const TITLES: Record<string, string> = {
-  search:    "⚙️ 장보기 조건 설정",
-  cart:      "🛍️ 장바구니 · AI 에이전트",
-  checklist: "🧾 상점별 체크리스트",
+  search:    "⚙️ 장보기 조건",
+  cart:      "🛍️ 장바구니",
+  checklist: "🧾 체크리스트",
   report:    "📝 가격 제보",
-  favorites: "⭐ 자주 가는 가게 · 자주 사는 품목",
+  favorites: "⭐ 즐겨찾기",
+  receipt:   "🧾 영수증 적립",
 };
 
+// ── 바텀 시트 ──────────────────────────────────────────────────
+function Sheet({
+  open, title, onClose, children,
+}: {
+  open: boolean; title: string; onClose: () => void; children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={`fixed inset-x-0 bottom-0 z-[700] transition-transform duration-300 ease-out
+        ${open ? "translate-y-0" : "translate-y-full"}`}
+      style={{ maxHeight: "75dvh" }}
+    >
+      <div
+        className="flex flex-col rounded-t-3xl overflow-hidden"
+        style={{
+          background: "rgba(8,15,30,0.96)",
+          backdropFilter: "blur(24px)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderBottom: "none",
+          maxHeight: "75dvh",
+        }}
+      >
+        {/* 핸들 + 헤더 */}
+        <div className="shrink-0 px-5 pt-3 pb-2">
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" />
+          <div className="flex items-center justify-between">
+            <h2 className="text-[15px] font-extrabold text-white">{title}</h2>
+            <button onClick={onClose}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white/60 hover:bg-white/20 text-lg leading-none">
+              ×
+            </button>
+          </div>
+        </div>
+        {/* 내용 */}
+        <div className="flex-1 overflow-y-auto px-4 pb-6 [scrollbar-width:thin]">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 추천경로 사이드바 (모바일: 토글 가능) ─────────────────────
+function RouteSidebar({
+  show, onClose,
+}: {
+  show: boolean; onClose: () => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  if (!show) return null;
+
+  return (
+    <>
+      {/* 모바일 토글 버튼 (지도 가릴 때 숨길 수 있게) */}
+      <button
+        onClick={() => setCollapsed((v) => !v)}
+        className="fixed left-3 z-[600] flex items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-bold shadow-lg md:hidden"
+        style={{
+          top: collapsed ? "4.5rem" : "calc(4.5rem + 4px)",
+          background: collapsed ? "#63b7ff" : "rgba(10,18,35,0.85)",
+          color: collapsed ? "#04101f" : "#63b7ff",
+          border: "1px solid #63b7ff",
+          backdropFilter: "blur(8px)",
+        }}
+      >
+        {collapsed ? "🏪 경로 보기" : "🗺️ 지도만 보기"}
+      </button>
+
+      {/* 사이드바 본체 */}
+      <div
+        className={`fixed left-3 top-16 bottom-[88px] z-[500] w-72 flex flex-col
+                    rounded-3xl shadow-2xl overflow-hidden
+                    transition-all duration-300
+                    ${collapsed
+                      ? "-translate-x-full opacity-0 pointer-events-none"
+                      : "translate-x-0 opacity-100"
+                    }`}
+        style={{
+          background: "rgba(10,18,35,0.88)",
+          backdropFilter: "blur(20px)",
+          border: "1px solid rgba(255,255,255,0.08)",
+        }}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+          <h2 className="text-[14px] font-bold text-white">🏪 추천 경로</h2>
+          <button onClick={onClose} className="text-xl text-white/40 hover:text-white leading-none">×</button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-3 [scrollbar-width:thin]">
+          <RoutePanel />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── 메인 ──────────────────────────────────────────────────────
 export default function Home() {
-  const { panel, setPanel, routePlans, routeChoice, setRouteChoice, setRoutePlans } = useApp();
+  const {
+    panel, setPanel, routePlans, routeChoice, setRouteChoice, setRoutePlans,
+  } = useApp();
   const [priceLayerOn, setPriceLayerOn] = useState(false);
 
-  // 추천 경로가 있고, (경로 패널이 열렸거나 경로가 선택된 경우) → 왼쪽 사이드바
   const hasRoutes = Object.keys(routePlans).length > 0;
-  const showLeftPanel = hasRoutes && (panel === "stores" || routeChoice !== null);
+  const showRoutes = hasRoutes && (panel === "stores" || routeChoice !== null);
+  const showSheet  = panel !== null && panel !== "stores";
 
-  // 바텀 시트: stores 패널은 왼쪽 사이드바로 이동했으므로 제외
-  const showBottomSheet = panel !== null && panel !== "stores";
-
-  function closeLeftPanel() {
+  function closeRoutes() {
     setRouteChoice(null);
     setRoutePlans({});
     if (panel === "stores") setPanel(null);
@@ -52,39 +150,12 @@ export default function Home() {
         />
         <BottomNav />
 
-        {/* ── 왼쪽 사이드바 (추천 경로 / 장보기 중) ── */}
-        <div
-          className={`fixed left-3 top-16 bottom-[88px] z-[500] w-72 flex flex-col
-                      rounded-3xl shadow-2xl overflow-hidden
-                      transition-all duration-300
-                      ${showLeftPanel
-                        ? "translate-x-0 opacity-100"
-                        : "-translate-x-4 opacity-0 pointer-events-none"
-                      }`}
-          style={{
-            background: "rgba(10,18,35,0.82)",
-            backdropFilter: "blur(20px)",
-            border: "1px solid rgba(255,255,255,0.08)",
-          }}
-        >
-          {/* 헤더 */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
-            <h2 className="text-[14px] font-bold text-ink1">🏪 추천 경로</h2>
-            <button
-              onClick={closeLeftPanel}
-              className="text-xl text-ink2 hover:text-ink1 leading-none"
-            >×</button>
-          </div>
+        {/* 추천경로 사이드바 (토글 가능) */}
+        <RouteSidebar show={showRoutes} onClose={closeRoutes} />
 
-          {/* 내용 */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 [scrollbar-width:thin]">
-            <RoutePanel />
-          </div>
-        </div>
-
-        {/* ── 바텀 시트 (조건설정·장바구니·체크리스트 등) ── */}
-        <BottomSheet
-          open={showBottomSheet}
+        {/* 바텀 시트 */}
+        <Sheet
+          open={showSheet}
           title={panel && panel !== "stores" ? (TITLES[panel] ?? "") : ""}
           onClose={() => setPanel(panel)}
         >
@@ -93,7 +164,16 @@ export default function Home() {
           {panel === "checklist" && <ChecklistPanel />}
           {panel === "report"    && <ReportPanel />}
           {panel === "favorites" && <FavoritesPanel />}
-        </BottomSheet>
+          {panel === "receipt"   && <ReceiptPanel />}
+        </Sheet>
+
+        {/* 배경 딤 */}
+        {showSheet && (
+          <div
+            className="fixed inset-0 z-[650] bg-black/30"
+            onClick={() => setPanel(panel)}
+          />
+        )}
       </main>
     </MapProvider>
   );

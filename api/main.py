@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import stores, items, recipes, basket, routes, prices, reports
+from routers import stores, items, recipes, basket, routes, prices, reports, receipts
 from routers import admin
 import scheduler as sched
 
@@ -35,7 +35,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for r in (stores, items, recipes, basket, routes, prices, reports, admin):
+for r in (stores, items, recipes, basket, routes, prices, reports, receipts, admin):
     app.include_router(r.router)
 
 

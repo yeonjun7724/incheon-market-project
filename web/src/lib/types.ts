@@ -1,5 +1,3 @@
-// FastAPI 응답과 1:1 매칭되는 타입
-
 export type StoreType = "전통시장" | "골목상권" | "동네식품점" | "대형유통";
 
 export interface Store {
@@ -63,11 +61,34 @@ export interface RoutePlan {
   minutes: number;
   n_stops: number;
 }
-export type RoutePlans = Record<string, RoutePlan>;  // 전략명 → plan
+export type RoutePlans = Record<string, RoutePlan>;
 
 export interface Report {
   item: string; price: number; store: string; lat: number; lng: number; date?: string;
 }
 
 export type PanelKey =
-  | null | "search" | "cart" | "stores" | "checklist" | "report" | "favorites";
+  | null | "search" | "cart" | "stores" | "checklist" | "report" | "favorites" | "receipt";
+
+// ── Mapbox 실제 경로 ──────────────────────────────────────────
+export interface RouteWithMapbox {
+  geometry: { type: "LineString"; coordinates: [number, number][] };
+  distance_m: number;
+  duration_s: number;
+}
+
+// ── 영수증 ────────────────────────────────────────────────────
+export interface ReceiptItem {
+  name: string;
+  price: number;
+  qty: number;
+}
+
+export interface ReceiptScanResult {
+  store_name: string;
+  store_id: string;
+  items: ReceiptItem[];
+  total: number;
+  reward_points: number;
+  message: string;
+}

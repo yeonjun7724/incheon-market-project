@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { PanelKey, RoutePlans } from "./types";
+import type { PanelKey, RoutePlans, RouteWithMapbox } from "./types";
 
 interface AppState {
   // 위치/지도
@@ -9,7 +9,7 @@ interface AppState {
   setLoc: (lat: number, lng: number) => void;
   setRadius: (r: number) => void;
 
-  // 지도 스타일 (레이어 전환)
+  // 지도 스타일
   mapStyle: string;
   toggleMapStyle: () => void;
 
@@ -25,9 +25,9 @@ interface AppState {
   setPanel: (p: PanelKey) => void;
 
   // 장바구니
-  picked: string[];          // 담은 재료명(순서 유지)
-  favItems: string[];        // ⭐ 자주 사는 품목
-  favStores: string[];       // 📌 자주 가는 가게 id
+  picked: string[];
+  favItems: string[];
+  favStores: string[];
   togglePick: (n: string) => void;
   toggleFavItem: (n: string) => void;
   toggleFavStore: (id: string) => void;
@@ -40,6 +40,14 @@ interface AppState {
   routeChoice: string | null;
   setRoutePlans: (p: RoutePlans) => void;
   setRouteChoice: (k: string | null) => void;
+
+  // Mapbox 실제 경로
+  mapboxRoute: RouteWithMapbox | null;
+  setMapboxRoute: (r: RouteWithMapbox | null) => void;
+
+  // 영수증 포인트
+  receiptPoints: number;
+  addReceiptPoints: (p: number) => void;
 }
 
 export const useApp = create<AppState>((set) => ({
@@ -85,4 +93,10 @@ export const useApp = create<AppState>((set) => ({
   routeChoice: null,
   setRoutePlans: (routePlans) => set({ routePlans }),
   setRouteChoice: (routeChoice) => set({ routeChoice }),
+
+  mapboxRoute: null,
+  setMapboxRoute: (mapboxRoute) => set({ mapboxRoute }),
+
+  receiptPoints: 0,
+  addReceiptPoints: (p) => set((s) => ({ receiptPoints: s.receiptPoints + p })),
 }));

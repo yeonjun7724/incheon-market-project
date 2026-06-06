@@ -1,5 +1,6 @@
 import type {
   Store, Item, DbItem, Recipe, BasketResult, RoutePlans, Report,
+  RouteWithMapbox, ReceiptScanResult,
 } from "./types";
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
@@ -13,10 +14,8 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export const getCenter = () =>
-  api<{ lat: number; lng: number }>("/stores/center");
-
-export const getStores = (lat?: number, lng?: number, radius = 3000, gu?: string) => {
+export const getCenter  = () => api<{ lat: number; lng: number }>("/stores/center");
+export const getStores  = (lat?: number, lng?: number, radius = 3000, gu?: string) => {
   const q = new URLSearchParams();
   if (lat != null) q.set("lat", String(lat));
   if (lng != null) q.set("lng", String(lng));
@@ -25,27 +24,57 @@ export const getStores = (lat?: number, lng?: number, radius = 3000, gu?: string
   return api<Store[]>(`/stores?${q.toString()}`);
 };
 
-export const getItems = () => api<Item[]>("/items");
+// DB 기반 (items_seed.csv 제거됨)
+export const getItems   = () => api<Item[]>("/items");
 export const getDbItems = () => api<DbItem[]>("/items/db");
 
-export const getRecipe = (dish: string) =>
+export const getRecipe    = (dish: string) =>
   api<Recipe>(`/recipes/${encodeURIComponent(dish)}`);
-
 export const getBuyingTip = (name: string) =>
   api<{ name: string; tips: string[] }>(`/recipes/tip/${encodeURIComponent(name)}`);
 
 export const optimizeBasket = (body: {
   budget: number; household: number; pref?: string; use_market?: boolean;
-}) => api<BasketResult>("/basket/optimize", {
-  method: "POST", body: JSON.stringify(body),
-});
+}) => api<BasketResult>("/basket/optimize", { method: "POST", body: JSON.stringify(body) });
 
 export const recommendRoutes = (body: {
   ingredients: string[]; lat: number; lng: number; radius?: number;
-}) => api<RoutePlans>("/routes/recommend", {
-  method: "POST", body: JSON.stringify(body),
-});
+}) => api<RoutePlans>("/routes/recommend", { method: "POST", body: JSON.stringify(body) });
 
 export const getReports = () => api<Report[]>("/reports");
-export const addReport = (body: Report) =>
+export const addReport  = (body: Report) =>
   api<Report>("/reports", { method: "POST", body: JSON.stringify(body) });
+
+// 영수증
+export const scanReceipt = (body: {
+  image_base64: string; store_id?: string; store_name?: string;
+}) => api<ReceiptScanResult>("/receipts/scan", { method: "POST", body: JSON.stringify(body) });
+
+export const getStoreLearnedItems = (storeId: string, storeName = "") =>
+  api<{ items: string[]; prices: Record<string, number>; source: string; learned: boolean }>(
+    `/receipts/store/${encodeURIComponent(storeId)}/items?store_name=${encodeURIComponent(storeName)}`
+  );
+
+// Mapbox Directions API
+export async function getMapboxRoute(
+  origin: [number, number],
+  waypoints: [number, number][],
+  accessToken: string,
+): Promise<RouteWithMapbox | null> {
+  if (!waypoints.length) return null;
+  const coords = [origin, ...waypoints].map(([lng, lat]) => `${lng},${lat}`).join(";");
+  const url =
+    `https://api.mapbox.com/directions/v5/mapbox/walking/${coords}` +
+    `?geometries=geojson&overview=full&steps=false&access_token=${accessToken}`;
+  try {
+    const res  = await fetch(url);
+    const data = await res.json();
+    const route = data.routes?.[0];
+    if (!route) return null;
+    return {
+      geometry:   route.geometry,
+      distance_m: Math.round(route.distance),
+      duration_s: Math.round(route.duration),
+    };
+  } catch { return null; }
+}

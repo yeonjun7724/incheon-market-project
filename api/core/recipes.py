@@ -1,241 +1,414 @@
 """
 core/recipes.py
-LocalCart 확장 로직 — AI 에이전트(요리→재료) · 가게별 가격 합성 · 추천경로 · 구매 팁
-
-설계 의도
-  - RECIPE_DB     : 요리명 → 재료 리스트 (룰 기반 "AI 에이전트" 폴백).
-                    나중에 LLM 호출로 교체 시 ask_agent() 만 갈아끼우면 됨.
-  - EXTRA_ITEMS   : 메인 20개 품목에 없는 레시피 재료(당면·마늘 등) 보강.
-  - store_item_price : (가게, 품목) 결정론적 가격 — 같은 입력이면 항상 같은 값.
-                    공공 평균가(market~supermarket) 범위 안에서 가게 유형·시드로 분산.
-  - recommend_routes : 최저예산 / 최소거리 / 최소경유 3가지 전략 경로 추출.
-  - buying_tip    : 품목별 "좋은 거 고르는 법" 팁 (img1 ? 버튼).
+LocalCart AI 로직 — ChatGPT API(gpt-4o-mini) 우선, 룰 기반 폴백
+  - ask_agent(): OpenAI Chat Completions API → 재료명을 DB item_key로 정규화
+  - infer_store_items(): 가게명 키워드 기반 취급 품목 추론
+  - learn_store_from_receipt(): 영수증 학습 데이터 저장
+  - recommend_routes(): 3전략 경로 (DB item_key 기반 매핑)
 """
 
 from __future__ import annotations
 import hashlib
 import math
+import os
+import json
+import re
 import pandas as pd
 
+# ── OpenAI 설정 ────────────────────────────────────────────────
+_OPENAI_KEY   = os.getenv("OPENAI_API_KEY", "")
+_OPENAI_MODEL = "gpt-4o-mini"
+
+def _call_openai(system: str, user: str, max_tokens: int = 512) -> str | None:
+    """OpenAI Chat Completions 동기 호출. 실패 시 None."""
+    if not _OPENAI_KEY:
+        return None
+    try:
+        import openai
+        client = openai.OpenAI(api_key=_OPENAI_KEY)
+        resp = client.chat.completions.create(
+            model=_OPENAI_MODEL,
+            max_tokens=max_tokens,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user",   "content": user},
+            ],
+            response_format={"type": "json_object"},
+        )
+        return resp.choices[0].message.content.strip()
+    except Exception as e:
+        import logging
+        logging.getLogger("localcart").warning(f"OpenAI call failed: {e}")
+        return None
+
 
 # ──────────────────────────────────────────────────────────────
-# 1) 레시피 DB (요리 → 재료)  ※ LLM 폴백용 룰 기반
+# 1) 레시피 DB (룰 기반 폴백) — item_key 기준으로 통일
 # ──────────────────────────────────────────────────────────────
-RECIPE_DB = {
-    "찜닭":     ["닭가슴살", "감자", "양파", "대파", "간장", "당면"],
-    "닭볶음탕": ["닭가슴살", "감자", "양파", "대파", "고추장", "고춧가루"],
-    "김치찌개": ["돼지앞다리", "두부", "대파", "양파", "고춧가루", "마늘"],
-    "된장찌개": ["두부", "애호박", "양파", "대파", "된장", "감자"],
-    "제육볶음": ["돼지앞다리", "양파", "대파", "고추장", "고춧가루", "마늘"],
-    "비빔밥":   ["계란", "콩나물", "시금치", "쌀", "고추장", "참기름"],
-    "잡채":     ["당면", "양파", "대파", "시금치", "간장", "참기름"],
-    "미역국":   ["미역", "돼지앞다리", "마늘", "참기름", "간장"],
-    "계란찜":   ["계란", "대파", "간장"],
-    "샐러드":   ["시금치", "사과", "바나나", "두유"],
-    "카레":     ["감자", "양파", "닭가슴살", "쌀"],
-    "콩나물국밥":["콩나물", "계란", "대파", "쌀", "고춧가루"],
+RECIPE_DB: dict[str, list[str]] = {
+    "찜닭":       ["닭가슴살", "감자", "양파", "대파", "간장", "당면"],
+    "닭볶음탕":   ["닭가슴살", "감자", "양파", "대파", "고추장", "고춧가루"],
+    "김치찌개":   ["돼지고기앞다리", "두부", "대파", "양파", "고춧가루", "마늘"],
+    "된장찌개":   ["두부", "애호박", "양파", "대파", "된장", "감자"],
+    "제육볶음":   ["돼지고기앞다리", "양파", "대파", "고추장", "고춧가루", "마늘"],
+    "비빔밥":     ["계란", "콩나물", "시금치", "쌀", "고추장", "참기름"],
+    "잡채":       ["당면", "양파", "대파", "시금치", "간장", "참기름"],
+    "미역국":     ["미역", "돼지고기앞다리", "마늘", "참기름", "간장"],
+    "계란찜":     ["계란", "대파", "간장"],
+    "샐러드":     ["시금치", "사과", "바나나", "두유"],
+    "카레":       ["감자", "양파", "닭가슴살", "쌀"],
+    "콩나물국밥": ["콩나물", "계란", "대파", "쌀", "고춧가루"],
+    "순두부찌개": ["두부", "계란", "양파", "대파", "고춧가루", "마늘"],
+    "부대찌개":   ["두부", "양파", "대파", "간장", "고춧가루"],
+    "떡볶이":     ["양파", "대파", "고추장", "고춧가루"],
+    "불고기":     ["양파", "대파", "간장", "참기름", "마늘"],
+    "삼겹살구이": ["돼지고기앞다리", "마늘", "양파", "대파"],
+    "닭갈비":     ["닭가슴살", "양파", "대파", "고추장", "고춧가루"],
+    "오징어볶음": ["양파", "대파", "고추장", "고춧가루", "마늘"],
+    "두부김치":   ["두부", "대파", "고춧가루", "마늘", "배추"],
+    "계란말이":   ["계란", "대파", "간장"],
+    "감자조림":   ["감자", "간장", "마늘"],
+    "시금치나물": ["시금치", "마늘", "간장", "참기름"],
+    "콩나물무침": ["콩나물", "대파", "마늘", "간장"],
+    "잡채밥":     ["당면", "양파", "시금치", "간장", "참기름", "계란"],
 }
 
-# 메인 20품목에 없는 재료 보강 (가격은 공공 소매가 참고 근사치)
-EXTRA_ITEMS = {
-    # name        category    unit     avg    market  super  emoji
-    "당면":      ("탄수화물", "300g",  3500,  3200,  3900,  "🍜"),
-    "마늘":      ("양념",     "100g",  1200,  1000,  1400,  "🧄"),
-    "고춧가루":  ("양념",     "100g",  3800,  3400,  4200,  "🌶️"),
-    "미역":      ("채소",     "50g",   2000,  1700,  2300,  "🌿"),
+# DB에서 직접 못 찾는 재료의 대체 데이터 (DB 없을 때 폴백)
+EXTRA_ITEMS: dict[str, tuple] = {
+    "당면":     ("탄수화물", "300g",  3500,  3200,  3900,  "🍜"),
+    "마늘":     ("양념",     "100g",  1200,  1000,  1400,  "🧄"),
+    "고춧가루": ("양념",     "100g",  3800,  3400,  4200,  "🌶️"),
+    "미역":     ("채소",     "50g",   2000,  1700,  2300,  "🌿"),
+    "된장":     ("양념",     "150g",  2500,  2200,  2800,  "🫙"),
+    "참기름":   ("양념",     "150ml", 4500,  4000,  5000,  "🫒"),
+    "간장":     ("양념",     "200ml", 2000,  1800,  2200,  "🫙"),
+    "고추장":   ("양념",     "150g",  3000,  2700,  3300,  "🌶️"),
+    "애호박":   ("채소",     "1개",   1500,  1300,  1700,  "🥬"),
 }
 
 
+def _normalize_ingredient(name: str) -> str:
+    """AI 재료명 → DB item_key 정규화 (core/items.py의 normalize_ingredient와 동기화)."""
+    from core.items import normalize_ingredient
+    return normalize_ingredient(name)
+
+
+# ──────────────────────────────────────────────────────────────
+# 2) ask_agent: 요리명 → 재료 리스트 (ChatGPT 우선, 룰 폴백)
+# ──────────────────────────────────────────────────────────────
 def ask_agent(query: str) -> tuple[str | None, list[str]]:
     """
-    요리명(또는 일부)을 받아 (매칭된요리명, 재료리스트) 반환.
-    룰 기반 폴백 — 부분일치 지원. 매칭 실패 시 (None, []).
-    ※ 추후 LLM 연결 시 이 함수 본문만 교체.
+    요리명 → (요리명, DB item_key 기준 재료리스트).
+    1순위: ChatGPT gpt-4o-mini
+    2순위: 룰 기반 RECIPE_DB
     """
     if not query:
         return None, []
-    q = query.strip().replace(" ", "")
-    # 1) 정확/부분 일치
+    q = query.strip()
+
+    # 1) ChatGPT 시도
+    ai_result = _call_openai(
+        system=(
+            "당신은 한국 요리 전문가입니다. "
+            "사용자가 요리명을 주면 반드시 JSON 형식으로만 응답하세요. "
+            '형식: {"dish": "정확한요리명", "ingredients": ["재료1", "재료2", ...]} '
+            "재료는 한국 마트/시장에서 살 수 있는 실제 식재료 이름을 간결하게 써주세요 "
+            "(예: 돼지앞다리, 닭가슴살, 대파, 양파, 감자, 두부, 계란, 시금치, 콩나물, "
+            "쌀, 배추, 고구마, 사과, 바나나, 간장, 된장, 고추장, 참기름, 고춧가루, 마늘). "
+            "소금·물·기름처럼 기본 조미료 제외. 최소 4개, 최대 8개. "
+            "요리가 아니면: {\"dish\": null, \"ingredients\": []}"
+        ),
+        user=q,
+        max_tokens=300,
+    )
+
+    if ai_result:
+        try:
+            obj = json.loads(ai_result)
+            dish = obj.get("dish")
+            raw_ings = obj.get("ingredients", [])
+            if dish and isinstance(raw_ings, list) and len(raw_ings) >= 2:
+                # DB item_key로 정규화
+                ings = [_normalize_ingredient(i) for i in raw_ings]
+                return dish, ings
+        except Exception:
+            pass
+
+    # 2) 룰 기반 폴백
+    qn = q.replace(" ", "")
     for dish, ings in RECIPE_DB.items():
-        if dish in q or q in dish:
+        if dish in qn or qn in dish:
             return dish, ings
-    # 2) 재료 역검색 (재료명으로 검색해도 그 재료 포함 요리 첫 매칭)
     for dish, ings in RECIPE_DB.items():
-        if any(q in ing or ing in q for ing in ings):
+        if any(qn in ing or ing in qn for ing in ings):
             return dish, ings
     return None, []
 
 
 # ──────────────────────────────────────────────────────────────
-# 2) 가게별 가격 합성 (결정론적)
+# 3) 가게명 → 취급 품목 추론 + 영수증 학습
 # ──────────────────────────────────────────────────────────────
-# 가게 유형별 가격 계수 — 전통시장이 싸고 대형유통이 비싼 경향 반영
+_STORE_ITEM_CACHE: dict[str, dict] = {}
+
+# 가게명 키워드 → DB item_key 목록
+_NAME_KEYWORD_MAP: list[tuple[list[str], list[str]]] = [
+    (["정육", "축산", "한돈", "소고기", "돼지", "육류"],
+     ["돼지고기앞다리", "닭가슴살"]),
+    (["채소", "야채", "청과"],
+     ["양파", "대파", "시금치", "콩나물", "감자", "애호박", "배추"]),
+    (["수산", "생선", "횟집"],
+     ["미역", "두부"]),
+    (["두부", "콩나물"],
+     ["두부", "콩나물"]),
+    (["계란", "달걀"],
+     ["계란"]),
+    (["쌀", "곡물", "잡곡"],
+     ["쌀", "당면"]),
+    (["반찬", "국거리", "식자재"],
+     ["두부", "콩나물", "시금치", "계란", "대파", "배추"]),
+    (["마트", "슈퍼", "편의점", "유통", "식품"],
+     ["양파", "감자", "두부", "계란", "대파", "쌀", "콩나물", "고추장", "된장", "간장"]),
+    (["시장", "전통"],
+     ["양파", "대파", "감자", "시금치", "돼지고기앞다리", "두부", "계란",
+      "콩나물", "배추", "고춧가루", "마늘", "된장"]),
+    (["과일", "청과물"],
+     ["사과", "바나나", "고구마"]),
+    (["양념", "조미"],
+     ["간장", "된장", "고추장", "고춧가루", "마늘", "참기름"]),
+]
+
+
+def infer_store_items_by_name(store_name: str) -> list[str]:
+    for keywords, items in _NAME_KEYWORD_MAP:
+        if any(kw in store_name for kw in keywords):
+            return items
+    # 기본: 일반 식품점
+    return ["양파", "대파", "감자", "두부", "계란", "콩나물"]
+
+
+def learn_store_from_receipt(store_id: str, store_name: str, items: list[dict]) -> None:
+    item_names = [_normalize_ingredient(it["name"]) for it in items if it.get("name")]
+    _STORE_ITEM_CACHE[store_id] = {
+        "store_name": store_name,
+        "items": item_names,
+        "prices": {_normalize_ingredient(it["name"]): it.get("price", 0)
+                   for it in items if it.get("name")},
+        "source": "receipt",
+    }
+
+
+def get_store_items(store_id: str, store_name: str) -> dict:
+    if store_id in _STORE_ITEM_CACHE:
+        cached = _STORE_ITEM_CACHE[store_id]
+        return {"items": cached["items"], "source": cached["source"],
+                "prices": cached.get("prices", {})}
+    items = infer_store_items_by_name(store_name)
+    return {"items": items, "source": "name_inference", "prices": {}}
+
+
+# ──────────────────────────────────────────────────────────────
+# 4) 가게별 가격 합성
+# ──────────────────────────────────────────────────────────────
 _TYPE_FACTOR = {"전통시장": 0.90, "골목상권": 0.96, "동네식품점": 1.00, "대형유통": 1.08}
 
 
 def _seed(*parts) -> float:
-    """문자열 조합 → 0~1 안정 난수 (해시 기반, 실행마다 동일)."""
     h = hashlib.md5("|".join(map(str, parts)).encode()).hexdigest()
     return int(h[:8], 16) / 0xFFFFFFFF
 
 
-def item_meta(name: str, items_df: pd.DataFrame) -> dict | None:
-    """메인 품목 또는 EXTRA_ITEMS 에서 품목 메타 조회."""
-    hit = items_df[items_df["name"] == name]
-    if not hit.empty:
-        r = hit.iloc[0]
-        return {"name": name, "category": r["category"], "unit": r["unit"],
-                "avg": int(r["avg_price"]), "market": int(r["market_price"]),
-                "super": int(r["supermarket_price"]), "emoji": r["emoji"]}
-    if name in EXTRA_ITEMS:
-        cat, unit, avg, mk, sp, em = EXTRA_ITEMS[name]
-        return {"name": name, "category": cat, "unit": unit,
-                "avg": avg, "market": mk, "super": sp, "emoji": em}
-    return None
-
-
-def store_item_price(store_id: str, store_type: str, meta: dict) -> int:
-    """(가게, 품목) 결정론적 단가. market~super 범위 안에서 유형·시드로 분산."""
-    lo, hi = meta["market"], meta["super"]
-    base = lo + (hi - lo) * _seed(store_id, meta["name"])      # 범위 내 위치
+def store_item_price(store_id: str, store_type: str, item: pd.Series) -> int:
     factor = _TYPE_FACTOR.get(store_type, 1.0)
-    return max(int(base * factor), int(lo * 0.85))
-
-
-def price_range(meta: dict, stores_df: pd.DataFrame) -> tuple[int, int]:
-    """후보 가게들에서 해당 품목 최저가~최고가."""
-    if stores_df.empty:
-        return meta["market"], meta["super"]
-    ps = [store_item_price(r["id"], r["type"], meta) for _, r in stores_df.iterrows()]
-    return min(ps), max(ps)
-
-
-def cheapest_store(meta: dict, stores_df: pd.DataFrame):
-    """해당 품목 최저가 가게 row + 가격 반환. (img2 자주사는품목 → 최저가 상점 연결)"""
-    best, best_p = None, None
-    for _, r in stores_df.iterrows():
-        p = store_item_price(r["id"], r["type"], meta)
-        if best_p is None or p < best_p:
-            best, best_p = r, p
-    return best, best_p
+    lo = int(item.get("market_price", 0))
+    hi = int(item.get("supermarket_price", 0))
+    noise = 0.85 + _seed(store_id, item.get("name", "")) * 0.30
+    return max(100, round(lo + (hi - lo) * noise * factor / 100) * 100)
 
 
 # ──────────────────────────────────────────────────────────────
-# 3) 추천 경로 (최저예산 / 최소거리 / 최소경유)
+# 5) 경로 추천
 # ──────────────────────────────────────────────────────────────
 def _haversine(la1, lo1, la2, lo2) -> float:
     R = 6371000
     p1, p2 = math.radians(la1), math.radians(la2)
-    dp, dl = math.radians(la2 - la1), math.radians(lo2 - lo1)
-    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
-    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    dp = math.radians(la2 - la1)
+    dl = math.radians(lo2 - lo1)
+    a = math.sin(dp/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dl/2)**2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
 
 
-def _nn_order(home, stores_df):
-    """현위치 기준 최근접이웃(NN) 방문순서. 반환: 정렬된 store row 리스트."""
-    pool = list(stores_df.itertuples(index=False))
-    order, cur = [], home
-    while pool:
-        nxt = min(pool, key=lambda s: _haversine(cur[0], cur[1], s.lat, s.lng))
-        order.append(nxt)
-        cur = (nxt.lat, nxt.lng)
-        pool.remove(nxt)
-    return order
-
-
-def _route_len_m(home, ordered):
-    """home → 순서대로 방문 시 총 이동거리(m)."""
-    total, cur = 0.0, home
-    for s in ordered:
-        total += _haversine(cur[0], cur[1], s.lat, s.lng)
-        cur = (s.lat, s.lng)
-    return total
-
-
-def recommend_routes(ingredients, items_df, stores_df, home) -> dict:
+def _assign_items(ingredients: list[str], items_df: pd.DataFrame,
+                  stores_df: pd.DataFrame) -> dict[str, dict]:
     """
-    재료 리스트 → 3가지 전략 경로.
-    각 전략: {stops:[store row], items_by_store:{id:[(품목,가격)]},
-              budget:int, distance_m:float, minutes:int, n_stops:int}
+    각 가게가 커버할 수 있는 재료를 매핑.
+    ingredients: DB item_key 기준 재료명 리스트.
     """
-    metas = [m for m in (item_meta(n, items_df) for n in ingredients) if m]
-    if not metas or stores_df.empty:
-        return {}
+    # items_df를 item_key로 인덱싱
+    items_by_key: dict[str, pd.Series] = {}
+    if not items_df.empty:
+        for _, row in items_df.iterrows():
+            key = row.get("name", row.get("code", ""))
+            if key:
+                items_by_key[key] = row
 
-    # 각 품목별 (가게 → 가격) 테이블
-    price_tbl = {}   # name -> list[(store_row, price)]
-    for m in metas:
-        rows = [(r, store_item_price(r["id"], r["type"], m)) for _, r in stores_df.iterrows()]
-        price_tbl[m["name"]] = sorted(rows, key=lambda x: x[1])
+    result: dict[str, dict] = {}
+    for _, store in stores_df.iterrows():
+        store_id = store["id"]
+        store_info = get_store_items(store_id, store["name"])
+        carried = store_info["items"]
 
-    def build(assign: dict):
-        """assign: name -> store_row. → 전략 결과 dict."""
-        by_store = {}
-        budget = 0
-        for m in metas:
-            sr = assign[m["name"]]
-            p = store_item_price(sr["id"], sr["type"], m)
-            by_store.setdefault(sr["id"], {"row": sr, "items": []})
-            by_store[sr["id"]]["items"].append((m["name"], p, m["emoji"], m["unit"]))
-            budget += p
-        ordered = _nn_order(home, pd.DataFrame([v["row"] for v in by_store.values()]))
-        dist = _route_len_m(home, ordered)
-        return {
-            "stops": ordered,
-            "by_store": by_store,
-            "budget": budget,
-            "distance_m": dist,
-            "minutes": int(dist / 67) + len(by_store) * 5,   # 도보 4km/h + 가게당 5분
-            "n_stops": len(by_store),
-        }
+        matched_ings = []
+        for ing in ingredients:
+            # 가게 취급 품목에 포함되는지 확인 (정확 또는 부분 일치)
+            covered = (
+                ing in carried
+                or any(ing in c or c in ing for c in carried)
+            )
+            if not covered:
+                continue
 
-    # A) 최저예산 — 품목마다 전체 최저가 가게
-    a_assign = {name: tbl[0][0] for name, tbl in price_tbl.items()}
+            # 가격 결정: 영수증 학습 → DB → EXTRA_ITEMS 순
+            price_override = store_info["prices"].get(ing)
+            if price_override:
+                price = price_override
+                emoji = "🛒"
+                unit  = ""
+            elif ing in items_by_key:
+                row = items_by_key[ing]
+                price = store_item_price(store_id, store["type"], row)
+                emoji = row.get("emoji", "🛒")
+                unit  = row.get("unit", "")
+            elif ing in EXTRA_ITEMS:
+                ei = EXTRA_ITEMS[ing]
+                factor = _TYPE_FACTOR.get(store["type"], 1.0)
+                price = round(ei[2] * factor / 100) * 100
+                emoji = ei[5]
+                unit  = ei[1]
+            else:
+                # DB에도 EXTRA에도 없는 품목: 가게 유형 기반 평균 가격 추정
+                price = round(2000 * _TYPE_FACTOR.get(store["type"], 1.0) / 100) * 100
+                emoji = "🛒"
+                unit  = ""
 
-    # B) 최소거리 — 현위치 최근접 가게 중 그 품목 파는 곳(전부 판다고 가정) 최근접
-    near = sorted(stores_df.itertuples(index=False),
-                  key=lambda s: _haversine(home[0], home[1], s.lat, s.lng))
-    near_id = near[0].id if near else None
-    b_assign = {}
-    for m in metas:
-        # 현위치에서 가까운 순으로, 가격표에 있는 가게 중 최근접
-        cand = sorted(price_tbl[m["name"]],
-                      key=lambda x: _haversine(home[0], home[1], x[0]["lat"], x[0]["lng"]))
-        b_assign[m["name"]] = cand[0][0]
+            matched_ings.append((ing, price, emoji, unit))
 
-    # C) 최소경유 — 1개 가게에서 다 사기(가장 가까운 단일 가게)
-    # 경유 수 최소(1곳) + 거리 최소 → 현위치에서 가장 가까운 단일 가게
-    best_single = min(
-        stores_df.iterrows(),
-        key=lambda kv: _haversine(home[0], home[1], kv[1]["lat"], kv[1]["lng"]),
-    )[1]
-    c_assign = {m["name"]: best_single for m in metas}
+        if matched_ings:
+            result[store_id] = {"row": store, "items": matched_ings}
+
+    return result
+
+
+def _build_plan(ingredients: list[str], store_assignments: dict,
+                origin: tuple[float, float]) -> dict | None:
+    if not store_assignments:
+        return None
+    covered: set[str] = set()
+    stops, by_store = [], {}
+    total_budget = 0
+
+    for sid, info in store_assignments.items():
+        new_ings = [i for i in info["items"] if i[0] not in covered]
+        if not new_ings:
+            continue
+        stops.append(info["row"])
+        by_store[sid] = {"row": info["row"], "items": new_ings}
+        total_budget += sum(p for _, p, _, _ in new_ings)
+        covered.update(i[0] for i in new_ings)
+
+    if not stops:
+        return None
+
+    coords = [(origin[0], origin[1])] + [(s["lat"], s["lng"]) for s in stops]
+    dist = sum(
+        _haversine(coords[i][0], coords[i][1], coords[i+1][0], coords[i+1][1])
+        for i in range(len(coords) - 1)
+    )
+    walk_min = dist / 80
+    shop_min = len(stops) * 10
+    total_min = round(walk_min + shop_min)
 
     return {
-        "최저예산": build(a_assign),
-        "최소거리": build(b_assign),
-        "최소경유": build(c_assign),
+        "stops": stops,
+        "by_store": by_store,
+        "budget": total_budget,
+        "distance_m": dist,
+        "minutes": total_min,
+        "n_stops": len(stops),
     }
 
 
+def recommend_routes(ingredients: list[str], items_df: pd.DataFrame,
+                     stores_df: pd.DataFrame,
+                     origin: tuple[float, float],
+                     radius_m: int = 3000) -> dict[str, dict]:
+    """3전략 경로 반환. ingredients는 DB item_key 기준."""
+    stores_df = stores_df.copy()
+    stores_df["_dist"] = stores_df.apply(
+        lambda r: _haversine(origin[0], origin[1], r["lat"], r["lng"]), axis=1)
+    nearby = stores_df[stores_df["_dist"] <= radius_m].copy()
+    if nearby.empty:
+        return {}
+
+    assignments = _assign_items(ingredients, items_df, nearby)
+    if not assignments:
+        return {}
+
+    strategies: dict[str, dict] = {}
+
+    # 최저예산: 전통시장 우선
+    budget_sorted = dict(sorted(
+        assignments.items(),
+        key=lambda kv: _TYPE_FACTOR.get(kv[1]["row"]["type"], 1.0)
+    ))
+    p = _build_plan(ingredients, budget_sorted, origin)
+    if p:
+        strategies["최저예산"] = p
+
+    # 최소거리: 가까운 순
+    dist_sorted = dict(sorted(
+        assignments.items(),
+        key=lambda kv: _haversine(origin[0], origin[1],
+                                  float(kv[1]["row"]["lat"]), float(kv[1]["row"]["lng"]))
+    ))
+    p = _build_plan(ingredients, dist_sorted, origin)
+    if p:
+        strategies["최소거리"] = p
+
+    # 최소경유: 커버리지 큰 순
+    cov_sorted = dict(sorted(
+        assignments.items(),
+        key=lambda kv: -len(kv[1]["items"])
+    ))
+    p = _build_plan(ingredients, cov_sorted, origin)
+    if p:
+        strategies["최소경유"] = p
+
+    return strategies
+
+
 # ──────────────────────────────────────────────────────────────
-# 4) 구매 팁 (img1 ? 버튼)
+# 6) buying_tip
 # ──────────────────────────────────────────────────────────────
-TIP_DB = {
-    "계란":     ["껍데기에 금·균열 없는지 확인", "흔들었을 때 출렁임 적을수록 신선", "표면이 까칠하고 광택 적은 게 신선란"],
-    "닭가슴살": ["살이 탄력 있고 눌렀을 때 바로 복원", "분홍빛 도는 선명한 색", "포장 안 핏물 적은 것"],
-    "돼지앞다리":["선홍색에 윤기, 지방은 흰색", "눌렀을 때 탄력 있는 것", "이취(냄새) 없는 것"],
-    "두부":     ["포장 물이 맑은 것", "유통기한 넉넉한 것", "단단함은 용도에 맞게(찌개=부침용)"],
-    "양파":     ["껍질 마르고 단단한 것", "뿌리·싹 안 난 것", "들었을 때 묵직한 것"],
-    "대파":     ["흰 대 굵고 단단한 것", "잎끝 시들지 않은 것", "뿌리 살아있는 것이 오래감"],
-    "감자":     ["싹·녹색 변색 없는 것", "표면 매끈하고 단단한 것", "주름 없는 것"],
-    "배추":     ["겉잎 짙은 초록, 묵직한 것", "밑동 깨끗한 것", "잎 사이 단단히 찬 것"],
-    "사과":     ["꼭지 싱싱하고 향 진한 것", "표면 매끈·단단한 것", "들었을 때 무거운 것"],
-    "시금치":   ["잎 짙은 녹색, 뿌리 붉은 것", "줄기 짧고 도톰한 것", "무르지 않은 것"],
-    "당면":     ["굵기 일정한 것", "고구마 전분 100% 확인", "투명도 높은 것"],
+_TIPS: dict[str, list[str]] = {
+    "양파":         ["껍질이 황금빛이고 단단한 것", "눌렀을 때 물렁거리지 않는 것"],
+    "감자":         ["상처·녹색 부위 없는 것", "껍질이 매끈하고 단단한 것"],
+    "두부":         ["유통기한 필수 확인", "포장 안 물이 맑은 것"],
+    "계란":         ["껍질에 금 없는 것", "흔들면 소리 없는 신선한 것"],
+    "대파":         ["잎 끝이 마르지 않은 것", "흰 부분이 두툼한 것"],
+    "시금치":       ["잎이 진녹색이고 싱싱한 것", "줄기가 가는 것이 부드러움"],
+    "콩나물":       ["콩 머리가 노랗고 통통한 것", "꼬리가 너무 길지 않은 것"],
+    "닭가슴살":     ["분홍색 유지, 회색 없는 것", "탄력있고 냄새 없는 것"],
+    "돼지고기앞다리":["선홍색이고 기름기 적당한 것", "냄새 없는 신선한 것"],
+    "쌀":           ["투명하고 광택 있는 것", "빻린 가루 없는 것"],
+    "사과":         ["색이 고르고 무거운 것", "꼭지가 싱싱한 것"],
+    "배추":         ["잎이 꽉 차고 무거운 것", "속이 노란빛인 것"],
+    "마늘":         ["통통하고 단단한 것", "껍질이 잘 붙어있는 것"],
 }
 
 
 def buying_tip(name: str) -> list[str]:
-    """품목별 구매 팁 3가지. 없으면 일반 팁."""
-    return TIP_DB.get(name, ["신선도·유통기한 먼저 확인", "겉포장 손상 없는지 확인", "단위가격(100g당) 비교 후 구매"])
+    key = _normalize_ingredient(name)
+    for k, tips in _TIPS.items():
+        if k in key or key in k:
+            return tips
+    return ["신선한 것으로 구매하세요.", "유통기한을 꼭 확인하세요."]

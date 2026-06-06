@@ -16,6 +16,7 @@ export function CartPanel() {
   const [noRecipe, setNoRecipe]   = useState(false);
   const [search, setSearch]       = useState("");
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [routeLoading, setRouteLoading] = useState(false);
 
   useEffect(() => { getDbItems().then(setDbItems).catch(console.error); }, []);
 
@@ -47,166 +48,197 @@ export function CartPanel() {
 
   async function goRoute() {
     if (!picked.length) return;
-    const plans = await recommendRoutes({ ingredients: picked, lat, lng, radius: radiusM });
-    setRoutePlans(plans);
-    setRouteChoice(null);
-    setPanel("stores");
+    setRouteLoading(true);
+    try {
+      const plans = await recommendRoutes({ ingredients: picked, lat, lng, radius: radiusM });
+      setRoutePlans(plans);
+      setRouteChoice(null);
+      setPanel("stores");
+    } finally {
+      setRouteLoading(false);
+    }
   }
 
   return (
-    <div className="space-y-4 text-ink1">
+    <div className="space-y-5 pb-2">
 
-      {/* 요리 검색 */}
-      <div>
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink3">🤖 만들 요리를 검색하세요</p>
+      {/* AI 요리 검색 */}
+      <section>
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-white/35">
+          🤖 AI 재료 추천
+        </p>
         <div className="flex gap-2">
-          <input value={dishQ} onChange={(e) => setDishQ(e.target.value)}
+          <input
+            value={dishQ}
+            onChange={(e) => setDishQ(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && searchRecipe()}
-            placeholder="예: 찜닭, 김치찌개, 잡채…"
-            className="flex-1 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-ink1 placeholder:text-ink3 outline-none focus:border-accent/50" />
-          <button onClick={searchRecipe} disabled={loading}
-            className="rounded-lg border border-accent/40 bg-accent/15 px-4 text-sm font-semibold text-accent disabled:opacity-50">
-            {loading ? "…" : "재료 찾기"}
+            placeholder="찜닭, 김치찌개, 잡채…"
+            className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5
+                       text-[14px] text-white placeholder:text-white/25 outline-none
+                       focus:border-[#63b7ff]/40"
+          />
+          <button
+            onClick={searchRecipe}
+            disabled={loading}
+            className="rounded-2xl bg-[#63b7ff]/20 border border-[#63b7ff]/30 px-5
+                       text-[13px] font-bold text-[#63b7ff] disabled:opacity-40
+                       active:scale-95 transition"
+          >
+            {loading ? "…" : "찾기"}
           </button>
         </div>
-      </div>
+      </section>
 
+      {/* 매칭 없음 */}
       {noRecipe && (
-        <div className="rounded-2xl rounded-br-sm border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-[13px] text-ink2">
-          음… 아직 그 요리 레시피는 없어요. 다른 요리로 검색하거나 아래에서 직접 담아보세요 🙂
+        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-[13px] text-white/50">
+          아직 그 레시피는 없어요. 다른 요리로 검색하거나 아래서 직접 담아보세요 🙂
         </div>
       )}
 
+      {/* 레시피 버블 */}
       {recipeDish && (
-        <div className="space-y-2">
-          <div className="max-w-[88%] rounded-2xl rounded-bl-sm border border-accent/20 bg-accent/10 px-3.5 py-2.5 text-[13px]">
-            <b>{recipeDish}</b> 만들 거야. 뭐 필요해?
+        <section className="space-y-2">
+          <div className="rounded-2xl rounded-bl-sm border border-[#63b7ff]/20 bg-[#63b7ff]/8
+                          px-4 py-3 text-[13px] text-white">
+            <b className="text-[#63b7ff]">{recipeDish}</b> 재료예요. 담을 재료를 선택하세요 👇
           </div>
-          <div className="ml-auto max-w-[88%] rounded-2xl rounded-br-sm border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-[13px] text-ink2">
-            <b className="text-accent3">{recipeDish}</b>엔 다음 재료가 들어가요<br />
-            {recipeIngs.map((x, i) => `${i + 1}. ${x}`).join("  ")}
-            <div className="mt-1 text-ink3">담을 재료를 눌러 ON/OFF 하세요 ↓</div>
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
+          {/* 재료 칩 */}
+          <div className="flex flex-wrap gap-2">
             {recipeIngs.map((ing) => {
-              const on = picked.includes(ing);
-              const m = meta(ing);
+              const on  = picked.includes(ing);
+              const m   = meta(ing);
               return (
-                <button key={ing} onClick={() => togglePick(ing)}
-                  className={`shrink-0 rounded-full border px-3 py-1.5 text-[13px] transition ${on ? "border-accent3/50 bg-accent3/15 text-accent3" : "border-white/10 text-ink2"}`}>
+                <button
+                  key={ing}
+                  onClick={() => togglePick(ing)}
+                  className={`rounded-full border px-3 py-1.5 text-[13px] transition active:scale-95
+                    ${on
+                      ? "border-[#4ade80]/40 bg-[#4ade80]/15 text-[#4ade80]"
+                      : "border-white/10 bg-white/5 text-white/60"}`}
+                >
                   {on ? "✓ " : "+ "}{ing}
-                  {m && <span className="ml-1 text-[11px] opacity-60">{m.price.toLocaleString()}원</span>}
+                  {m && <span className="ml-1 text-[11px] opacity-50">{m.price.toLocaleString()}원</span>}
                 </button>
               );
             })}
           </div>
-        </div>
+        </section>
       )}
 
-      {/* 품목 검색 */}
-      <div>
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink3">➕ 추가로 담을 품목</p>
+      {/* 품목 추가 검색 */}
+      <section>
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-white/35">
+          ➕ 직접 담기
+        </p>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="품목명 검색 (예: 대파, 고등어, 배추…)"
-          className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-ink1 placeholder:text-ink3 outline-none focus:border-accent/50 mb-2"
+          placeholder="품목명 검색 (대파, 배추, 고등어…)"
+          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5
+                     text-[14px] text-white placeholder:text-white/25 outline-none
+                     focus:border-[#63b7ff]/40 mb-2"
         />
         {search.trim() && (
-          <div className="max-h-48 overflow-y-auto rounded-lg border border-white/10 bg-white/[0.03] [scrollbar-width:thin]">
+          <div className="rounded-2xl border border-white/8 bg-white/3 overflow-hidden max-h-44 overflow-y-auto [scrollbar-width:thin]">
             {addable.length === 0 ? (
-              <p className="px-3 py-2 text-[13px] text-ink3">검색 결과 없음</p>
-            ) : (
-              addable.slice(0, 30).map((item) => (
-                <button key={item.item_key}
-                  onClick={() => { togglePick(item.item_key); setSearch(""); }}
-                  className="flex w-full items-center justify-between px-3 py-2 text-left text-[13px] hover:bg-white/5 border-b border-white/5 last:border-0">
-                  <span>
-                    <span className="font-medium">{item.name}</span>
-                    <span className="ml-2 text-[11px] text-ink3">{item.category}</span>
-                  </span>
-                  <span className="font-mono text-accent3 shrink-0 ml-2">
-                    {item.price.toLocaleString()}원
-                    <span className="text-[10px] text-ink3 ml-1">/{item.unit}</span>
-                  </span>
-                </button>
-              ))
-            )}
+              <p className="px-4 py-3 text-[13px] text-white/35">검색 결과 없음</p>
+            ) : addable.slice(0, 30).map((item) => (
+              <button key={item.item_key}
+                onClick={() => { togglePick(item.item_key); setSearch(""); }}
+                className="flex w-full items-center justify-between px-4 py-2.5 text-left
+                           hover:bg-white/5 border-b border-white/5 last:border-0 transition">
+                <div>
+                  <span className="text-[13px] font-medium text-white">{item.name}</span>
+                  <span className="ml-2 text-[11px] text-white/30">{item.category}</span>
+                </div>
+                <span className="text-[12px] font-bold text-[#4ade80] font-mono shrink-0 ml-2">
+                  {item.price.toLocaleString()}원
+                  <span className="text-[10px] text-white/30 ml-1">/{item.unit}</span>
+                </span>
+              </button>
+            ))}
           </div>
         )}
-      </div>
+      </section>
 
       {/* 담은 재료 */}
-      <div>
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink3">🧺 담은 재료</p>
-        {picked.length === 0 ? (
-          <p className="text-[13px] text-ink3">아직 담은 재료가 없어요. 위에서 요리를 검색하거나 직접 담아보세요.</p>
-        ) : (
-          <div className="space-y-1.5">
+      {picked.length > 0 && (
+        <section>
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-white/35">
+            🧺 담은 재료
+          </p>
+          <div className="space-y-2">
             {picked.map((key) => {
-              const m = meta(key);
+              const m   = meta(key);
               const fav = favItems.includes(key);
-              const q = qty(key);
+              const q   = qty(key);
               const lineTotal = (m?.price ?? 0) * q;
 
               return (
-                <div key={key} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2">
-                  {/* 이름·단위 */}
+                <div key={key}
+                  className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/3 px-3 py-2.5">
+                  {/* 이름 */}
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1 text-[13px] font-bold leading-tight">
-                      {fav && <span className="text-[#f5c84b] text-[11px]">★</span>}
+                    <div className="flex items-center gap-1 text-[13px] font-semibold text-white leading-tight">
+                      {fav && <span className="text-yellow-400 text-[11px]">★</span>}
                       <span className="truncate">{m?.name ?? key}</span>
                     </div>
-                    <div className="text-[10px] text-ink3">{m?.unit} · {m?.category}</div>
+                    <div className="text-[10px] text-white/30 mt-0.5">
+                      {m ? `${m.unit} · ${m.category}` : "DB 미등록"}
+                    </div>
                   </div>
-
-                  {/* 수량 조절 */}
+                  {/* 수량 */}
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => changeQty(key, -1)}
-                      className="flex h-6 w-6 items-center justify-center rounded border border-white/10 text-[14px] text-ink2 hover:bg-white/5 leading-none">
-                      −
-                    </button>
-                    <span className="w-5 text-center text-[13px] font-mono">{q}</span>
+                      className="flex h-6 w-6 items-center justify-center rounded-lg border border-white/10
+                                 text-white/50 hover:bg-white/8 text-[14px] leading-none">−</button>
+                    <span className="w-5 text-center text-[13px] font-mono text-white">{q}</span>
                     <button onClick={() => changeQty(key, +1)}
-                      className="flex h-6 w-6 items-center justify-center rounded border border-white/10 text-[14px] text-ink2 hover:bg-white/5 leading-none">
-                      +
-                    </button>
+                      className="flex h-6 w-6 items-center justify-center rounded-lg border border-white/10
+                                 text-white/50 hover:bg-white/8 text-[14px] leading-none">+</button>
                   </div>
-
                   {/* 가격 */}
-                  <div className="text-right shrink-0 min-w-[64px]">
+                  <div className="text-right shrink-0 min-w-[60px]">
                     {m ? (
-                      <>
-                        <div className="text-[13px] font-bold text-accent3 font-mono">{lineTotal.toLocaleString()}원</div>
-                        {q > 1 && <div className="text-[10px] text-ink3">{m.price.toLocaleString()}×{q}</div>}
-                      </>
+                      <div className="text-[13px] font-bold text-[#4ade80] font-mono">
+                        {lineTotal.toLocaleString()}원
+                      </div>
                     ) : (
-                      <div className="text-[11px] text-ink3">정보없음</div>
+                      <div className="text-[11px] text-white/25">정보없음</div>
                     )}
                   </div>
-
-                  <button onClick={() => toggleFavItem(key)} className="text-[16px] text-ink3 hover:text-[#f5c84b] shrink-0">{fav ? "★" : "☆"}</button>
-                  <button onClick={() => togglePick(key)} className="text-ink3 hover:text-red-400 text-sm shrink-0">✕</button>
+                  <button onClick={() => toggleFavItem(key)}
+                    className="text-[15px] text-white/25 hover:text-yellow-400 shrink-0">{fav ? "★" : "☆"}</button>
+                  <button onClick={() => togglePick(key)}
+                    className="text-white/25 hover:text-red-400 text-[13px] shrink-0">✕</button>
                 </div>
               );
             })}
 
             {/* 합계 */}
-            <div className="mt-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5">
-              <div className="flex items-baseline justify-between">
-                <div className="text-[10px] uppercase tracking-wide text-ink3">예상 합계</div>
-                <div className="font-mono text-xl font-bold text-accent2">{totalPrice.toLocaleString()}원</div>
+            <div className="rounded-2xl border border-white/8 bg-white/3 px-4 py-3 flex items-center justify-between">
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-white/30">예상 합계</div>
+                <div className="text-[10px] text-white/20 mt-0.5">소매가 기준</div>
               </div>
-              <div className="text-[10px] text-ink3 mt-0.5">소매가 기준 · 없으면 도매 중앙값</div>
+              <div className="text-[20px] font-black font-mono text-[#4ade80]">
+                {totalPrice.toLocaleString()}원
+              </div>
             </div>
 
-            <button onClick={goRoute}
-              className="mt-1 w-full rounded-xl border border-accent/40 bg-accent/15 py-3 font-bold text-accent hover:bg-accent/25">
-              🧭  추천 경로 보기
+            <button
+              onClick={goRoute}
+              disabled={routeLoading}
+              className="w-full rounded-2xl bg-[#63b7ff]/20 border border-[#63b7ff]/30
+                         py-4 text-[15px] font-bold text-[#63b7ff]
+                         hover:bg-[#63b7ff]/30 disabled:opacity-40 transition active:scale-[0.98]"
+            >
+              {routeLoading ? "⏳ 경로 계산 중…" : "🧭 추천 경로 보기"}
             </button>
           </div>
-        )}
-      </div>
+        </section>
+      )}
     </div>
   );
 }
