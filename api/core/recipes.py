@@ -211,6 +211,35 @@ def get_store_items(store_id: str, store_name: str) -> dict:
 # ──────────────────────────────────────────────────────────────
 _TYPE_FACTOR = {"전통시장": 0.90, "골목상권": 0.96, "동네식품점": 1.00, "대형유통": 1.08}
 
+# DB/EXTRA에 없는 재료 → OpenAI 가격 추론 캐시
+_AI_PRICE_CACHE: dict[str, int] = {}
+
+
+def _infer_item_price_ai(item_name: str) -> int:
+    """DB·EXTRA에 없는 재료의 한국 마트 소매가를 OpenAI로 추론. 실패 시 2000원 반환."""
+    if item_name in _AI_PRICE_CACHE:
+        return _AI_PRICE_CACHE[item_name]
+    result = _call_openai(
+        system=(
+            "당신은 한국 식품 가격 전문가입니다. "
+            "품목명을 주면 한국 일반 마트 소매가를 JSON으로 답하세요. "
+            '형식: {"price": 숫자, "unit": "단위"} — 숫자는 정수(원), 예: {"price": 2500, "unit": "100g"}'
+        ),
+        user=f"품목: {item_name}",
+        max_tokens=60,
+    )
+    if result:
+        try:
+            obj = json.loads(result)
+            price = int(obj.get("price", 2000))
+            if 100 <= price <= 200000:
+                _AI_PRICE_CACHE[item_name] = price
+                return price
+        except Exception:
+            pass
+    _AI_PRICE_CACHE[item_name] = 2000
+    return 2000
+
 
 def _seed(*parts) -> float:
     h = hashlib.md5("|".join(map(str, parts)).encode()).hexdigest()
@@ -222,7 +251,8 @@ def store_item_price(store_id: str, store_type: str, item: pd.Series) -> int:
     lo = int(item.get("market_price", 0))
     hi = int(item.get("supermarket_price", 0))
     noise = 0.85 + _seed(store_id, item.get("name", "")) * 0.30
-    return max(100, round(lo + (hi - lo) * noise * factor / 100) * 100)
+    price = lo + (hi - lo) * noise * factor
+    return max(100, round(price / 100) * 100)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -285,8 +315,10 @@ def _assign_items(ingredients: list[str], items_df: pd.DataFrame,
                 emoji = ei[5]
                 unit  = ei[1]
             else:
-                # DB에도 EXTRA에도 없는 품목: 가게 유형 기반 평균 가격 추정
-                price = round(2000 * _TYPE_FACTOR.get(store["type"], 1.0) / 100) * 100
+                # DB에도 EXTRA에도 없는 품목: OpenAI로 가격 추론
+                base_price = _infer_item_price_ai(ing)
+                factor = _TYPE_FACTOR.get(store["type"], 1.0)
+                price = max(100, round(base_price * factor / 100) * 100)
                 emoji = "🛒"
                 unit  = ""
 
@@ -337,15 +369,34 @@ def _build_plan(ingredients: list[str], store_assignments: dict,
     }
 
 
+# 채식 선호 시 제외할 재료 (육류)
+_MEAT_KEYS = {"돼지고기앞다리", "닭가슴살", "소고기", "육류", "돼지", "닭"}
+
+
 def recommend_routes(ingredients: list[str], items_df: pd.DataFrame,
                      stores_df: pd.DataFrame,
                      origin: tuple[float, float],
-                     radius_m: int = 3000) -> dict[str, dict]:
+                     radius_m: int = 3000,
+                     budget: int = 0,
+                     household: int = 1,
+                     pref: str = "균형",
+                     use_market: bool = True) -> dict[str, dict]:
     """3전략 경로 반환. ingredients는 DB item_key 기준."""
+    # 채식 선호 시 육류 재료 제외
+    if pref == "채식":
+        ingredients = [i for i in ingredients if i not in _MEAT_KEYS]
+
     stores_df = stores_df.copy()
     stores_df["_dist"] = stores_df.apply(
         lambda r: _haversine(origin[0], origin[1], r["lat"], r["lng"]), axis=1)
     nearby = stores_df[stores_df["_dist"] <= radius_m].copy()
+
+    # use_market=False 면 전통시장 비선호 (대형유통 우선)
+    if not use_market:
+        market_stores = nearby[nearby["type"] == "전통시장"]
+        other_stores  = nearby[nearby["type"] != "전통시장"]
+        nearby = pd.concat([other_stores, market_stores])
+
     if nearby.empty:
         return {}
 
@@ -353,15 +404,25 @@ def recommend_routes(ingredients: list[str], items_df: pd.DataFrame,
     if not assignments:
         return {}
 
+    # 가구 수에 따라 예산 스케일 (가구원 / 2 배율, 최소 1)
+    hh_scale = max(1.0, household / 2.0)
+
     strategies: dict[str, dict] = {}
 
-    # 최저예산: 전통시장 우선
-    budget_sorted = dict(sorted(
-        assignments.items(),
-        key=lambda kv: _TYPE_FACTOR.get(kv[1]["row"]["type"], 1.0)
-    ))
+    # 최저예산: 전통시장 우선 (use_market=True 시)
+    if use_market:
+        budget_sort_key = lambda kv: _TYPE_FACTOR.get(kv[1]["row"]["type"], 1.0)
+    else:
+        budget_sort_key = lambda kv: -_TYPE_FACTOR.get(kv[1]["row"]["type"], 1.0)
+
+    budget_sorted = dict(sorted(assignments.items(), key=budget_sort_key))
     p = _build_plan(ingredients, budget_sorted, origin)
     if p:
+        p["budget"] = round(p["budget"] * hh_scale)
+        p["household"] = household
+        # budget 조건: 초과 여부 표시
+        if budget > 0:
+            p["over_budget"] = p["budget"] > budget
         strategies["최저예산"] = p
 
     # 최소거리: 가까운 순
@@ -372,6 +433,10 @@ def recommend_routes(ingredients: list[str], items_df: pd.DataFrame,
     ))
     p = _build_plan(ingredients, dist_sorted, origin)
     if p:
+        p["budget"] = round(p["budget"] * hh_scale)
+        p["household"] = household
+        if budget > 0:
+            p["over_budget"] = p["budget"] > budget
         strategies["최소거리"] = p
 
     # 최소경유: 커버리지 큰 순
@@ -381,6 +446,10 @@ def recommend_routes(ingredients: list[str], items_df: pd.DataFrame,
     ))
     p = _build_plan(ingredients, cov_sorted, origin)
     if p:
+        p["budget"] = round(p["budget"] * hh_scale)
+        p["household"] = household
+        if budget > 0:
+            p["over_budget"] = p["budget"] > budget
         strategies["최소경유"] = p
 
     return strategies

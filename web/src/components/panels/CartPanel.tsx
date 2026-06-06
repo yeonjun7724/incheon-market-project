@@ -8,6 +8,7 @@ export function CartPanel() {
   const {
     lat, lng, radiusM, picked, favItems, togglePick, toggleFavItem,
     recipeDish, recipeIngs, setRecipe, setRoutePlans, setRouteChoice, setPanel,
+    budget, household, pref, useMarket,
   } = useApp();
 
   const [dbItems, setDbItems]     = useState<DbItem[]>([]);
@@ -50,7 +51,10 @@ export function CartPanel() {
     if (!picked.length) return;
     setRouteLoading(true);
     try {
-      const plans = await recommendRoutes({ ingredients: picked, lat, lng, radius: radiusM });
+      const plans = await recommendRoutes({
+        ingredients: picked, lat, lng, radius: radiusM,
+        budget, household, pref, use_market: useMarket,
+      });
       setRoutePlans(plans);
       setRouteChoice(null);
       setPanel("stores");

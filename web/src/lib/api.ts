@@ -39,6 +39,7 @@ export const optimizeBasket = (body: {
 
 export const recommendRoutes = (body: {
   ingredients: string[]; lat: number; lng: number; radius?: number;
+  budget?: number; household?: number; pref?: string; use_market?: boolean;
 }) => api<RoutePlans>("/routes/recommend", { method: "POST", body: JSON.stringify(body) });
 
 export const getReports = () => api<Report[]>("/reports");

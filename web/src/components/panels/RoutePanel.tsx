@@ -10,10 +10,13 @@ const STRAT: Record<string, { icon: string; label: string; desc: string; color: 
   최소경유: { icon: "🧭", label: "최소경유", desc: "한 가게에서 최대한 • 경유지 최소", color: "#4ade80" },
 };
 
+const STOP_PALETTE = ["#f5a623", "#a855f7", "#ec4899", "#14b8a6", "#f97316", "#eab308", "#ef4444", "#06b6d4"];
+
 export function RoutePanel() {
   const {
     lat, lng, radiusM, picked, routePlans, routeChoice,
     setRoutePlans, setRouteChoice, setPanel, setMapboxRoute,
+    budget, household, pref, useMarket,
   } = useApp();
 
   const [mbRoutes, setMbRoutes] = useState<Record<string, RouteWithMapbox | null>>({});
@@ -24,7 +27,7 @@ export function RoutePanel() {
   useEffect(() => {
     if (picked.length && Object.keys(routePlans).length === 0) {
       setLoadingPlan(true);
-      recommendRoutes({ ingredients: picked, lat, lng, radius: radiusM })
+      recommendRoutes({ ingredients: picked, lat, lng, radius: radiusM, budget, household, pref, use_market: useMarket })
         .then(setRoutePlans)
         .catch(console.error)
         .finally(() => setLoadingPlan(false));
@@ -126,19 +129,19 @@ export function RoutePanel() {
             </div>
 
             {/* 지표 4개 */}
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-4 gap-1">
               {[
                 { v: `${p.budget.toLocaleString()}원`, l: "예산" },
                 { v: `${distKm}km`, l: "거리" },
-                { v: `${walkMin}분`, l: mb ? "이동(실측)" : "이동(추정)" },
-                { v: `${totalMin}분`, l: `총(+구입${shopMin}분)` },
+                { v: `${walkMin}분`, l: mb ? "실측" : "추정" },
+                { v: `${totalMin}분`, l: `총(구입포함)` },
               ].map(({ v, l }) => (
-                <div key={l} className="rounded-xl bg-white/5 py-2 text-center">
+                <div key={l} className="rounded-xl bg-white/5 px-1 py-2 text-center min-w-0">
                   <div
-                    className="text-[13px] font-bold font-mono"
+                    className="text-[11px] font-bold font-mono leading-tight break-all"
                     style={{ color: col }}
                   >{v}</div>
-                  <div className="text-[9px] text-white/35 leading-tight mt-0.5">{l}</div>
+                  <div className="text-[8px] text-white/35 leading-tight mt-0.5 truncate">{l}</div>
                 </div>
               ))}
             </div>
@@ -151,7 +154,7 @@ export function RoutePanel() {
                   <div key={s.id} className="flex items-center gap-2">
                     <div
                       className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-white"
-                      style={{ background: col }}
+                      style={{ background: STOP_PALETTE[i % STOP_PALETTE.length] }}
                     >{i+1}</div>
                     <span className="text-[12px] text-white/80 truncate">{s.name}</span>
                     <span className="text-[10px] text-white/30 shrink-0">{s.type}</span>

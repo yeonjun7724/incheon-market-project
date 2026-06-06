@@ -79,13 +79,6 @@ export function SearchBar() {
           className="flex-1 bg-transparent text-[13px] text-white placeholder:text-white/35 outline-none min-w-0"
         />
 
-        {/* 영수증 버튼 */}
-        <button
-          onClick={() => setPanel("receipt")}
-          className="shrink-0 text-[20px] leading-none opacity-70 hover:opacity-100 px-1"
-          title="영수증 적립"
-        >🧾</button>
-
         {/* 검색 버튼 */}
         <button
           onClick={run}

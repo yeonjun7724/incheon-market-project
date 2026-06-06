@@ -15,6 +15,10 @@ class RouteReq(BaseModel):
     lat: float
     lng: float
     radius: int = 3000
+    budget: int = 0
+    household: int = 1
+    pref: str = "균형"
+    use_market: bool = True
 
 
 def _store_row(sr) -> dict:
@@ -58,6 +62,12 @@ def _serialize(plan: dict) -> dict:
 @router.post("/recommend")
 def recommend(req: RouteReq):
     items = load_items()
-    plans = recommend_routes(req.ingredients, items, _STORES, (req.lat, req.lng))
-    # plans: {전략명: plan dict} — pandas row 들을 JSON-friendly 로 변환
+    plans = recommend_routes(
+        req.ingredients, items, _STORES, (req.lat, req.lng),
+        radius_m=req.radius,
+        budget=req.budget,
+        household=req.household,
+        pref=req.pref,
+        use_market=req.use_market,
+    )
     return {strategy: _serialize(plan) for strategy, plan in plans.items()}

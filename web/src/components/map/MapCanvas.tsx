@@ -21,7 +21,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
   const [tooltip, setTooltip] = useState<Tooltip | null>(null);
   const [fetchKey, setFetchKey] = useState(0);
   const mapRef = useRef<MapRef | null>(null);
-  const isDark = mapStyle.includes("dark");
+  const isDark = mapStyle.includes("dark") || mapStyle.includes("night");
 
   // ── 상점 로드 (버그 수정: retry + 방어) ──────────────────────
   const loadStores = useCallback(async () => {
@@ -84,12 +84,14 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
 
   const plan = routeChoice ? routePlans[routeChoice] : null;
 
-  // 전략별 색상 (경로 라인 + 경유지 마커)
+  // 전략별 색상 (경로 라인)
   const STRAT_COLOR: Record<string, string> = {
-    최저예산: "#f5a623",   // 주황 — 💰 예산 절약
-    최소거리: "#63b7ff",   // 파랑 — 📍 가까운 거리
-    최소경유: "#4ade80",   // 초록 — 🧭 경유 최소
+    최저예산: "#f5a623",
+    최소거리: "#63b7ff",
+    최소경유: "#4ade80",
   };
+  // 경유지별 고유 색상 팔레트
+  const STOP_PALETTE = ["#f5a623", "#a855f7", "#ec4899", "#14b8a6", "#f97316", "#eab308", "#ef4444", "#06b6d4"];
   const routeColor = routeChoice ? (STRAT_COLOR[routeChoice] ?? "#ff5470") : "#ff5470";
 
   function handleMouseMove(e: MapMouseEvent) {
@@ -217,12 +219,12 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
           </Source>
         )}
 
-        {/* 경유지 번호 마커 */}
+        {/* 경유지 번호 마커 — 상점마다 고유 색상 */}
         {plan?.stops.map((s, i) => (
           <Marker key={`stop-${s.id}`} longitude={s.lng} latitude={s.lat} anchor="center">
             <div style={{
               width: 28, height: 28, borderRadius: "50%",
-              background: routeColor, color: "#fff",
+              background: STOP_PALETTE[i % STOP_PALETTE.length], color: "#fff",
               display: "flex", alignItems: "center", justifyContent: "center",
               fontWeight: 800, fontSize: 13,
               border: "2.5px solid #fff",
