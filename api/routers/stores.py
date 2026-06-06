@@ -33,3 +33,18 @@ def center():
     from core.data_loader import map_center
     la, ln = map_center(_STORES)
     return {"lat": la, "lng": ln}
+
+
+@router.get("/{store_id}/items")
+def store_items(store_id: str, store_name: str = "", store_type: str = ""):
+    """상점 취급 품목 조회 — 영수증 학습 → AI 추론 순."""
+    from core.recipes import get_store_items, infer_store_items_ai
+
+    # 영수증으로 학습된 데이터 우선
+    learned = get_store_items(store_id)
+    if learned:
+        return {"items": list(learned.keys()), "prices": learned, "source": "영수증 확인"}
+
+    # AI 추론
+    inferred = infer_store_items_ai(store_name or store_id, store_type)
+    return {"items": inferred, "prices": {}, "source": "AI 추론"}

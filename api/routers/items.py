@@ -148,3 +148,108 @@ def items_db():
 
     result.sort(key=lambda x: x["category"])
     return result
+
+
+# ── POST /items/infer ─────────────────────────────────────────
+from pydantic import BaseModel
+
+class InferReq(BaseModel):
+    names: list[str]
+
+
+def _infer_ingredient_full(item_key: str) -> dict | None:
+    """DB에 없는 재료의 가격·단위·카테고리를 OpenAI로 추론. 실패 시 None."""
+    if not _OPENAI_KEY:
+        return None
+    if item_key in _INFERRED_CACHE:
+        return {"price": _INFERRED_CACHE[item_key], "unit": "원/단위", "category": "기타", "price_type": "AI추론"}
+    try:
+        import openai
+        client = openai.OpenAI(api_key=_OPENAI_KEY)
+        resp = client.chat.completions.create(
+            model=_OPENAI_MODEL,
+            max_tokens=100,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "당신은 한국 식품 가격 전문가입니다. "
+                        "재료명을 주면 한국 일반 마트/시장 기준의 가격 정보를 JSON으로 답하세요. "
+                        '형식: {"price": 숫자, "unit": "단위문자열", "category": "카테고리"} '
+                        '예: {"price": 15000, "unit": "원/kg", "category": "축산물"}'
+                    ),
+                },
+                {"role": "user", "content": f"재료명: {item_key}"},
+            ],
+            response_format={"type": "json_object"},
+        )
+        obj = json.loads(resp.choices[0].message.content.strip())
+        price = int(float(str(obj.get("price", 0)).replace(",", "")))
+        if 50 <= price <= 500000:
+            _INFERRED_CACHE[item_key] = price
+            return {
+                "price": price,
+                "unit": str(obj.get("unit", "원/단위")),
+                "category": str(obj.get("category", "기타")),
+                "price_type": "AI추론",
+            }
+    except Exception:
+        pass
+    return None
+
+
+@router.post("/infer")
+def infer_items(req: InferReq):
+    """재료명 리스트 → 가격 정보 반환 (DB → EXTRA_ITEMS → OpenAI 순)."""
+    from core.items import normalize_ingredient, EMOJI_MAP
+    from core.recipes import EXTRA_ITEMS
+
+    df = load_items()
+    db_by_key: dict[str, dict] = {}
+    if not df.empty:
+        for _, row in df.iterrows():
+            db_by_key[str(row["name"])] = row.to_dict()
+
+    result: dict[str, dict] = {}
+
+    for raw_name in req.names:
+        key = normalize_ingredient(raw_name)
+
+        if key in db_by_key:
+            r = db_by_key[key]
+            price = int(r.get("avg_price", 0))
+            if price > 0:
+                result[raw_name] = {
+                    "item_key": key, "name": key,
+                    "category": r.get("category", "기타"), "price": price,
+                    "unit": r.get("unit", "원/kg"), "price_type": "DB",
+                    "emoji": r.get("emoji", EMOJI_MAP.get(key, "🛒")),
+                }
+                continue
+
+        if key in EXTRA_ITEMS:
+            ei = EXTRA_ITEMS[key]
+            result[raw_name] = {
+                "item_key": key, "name": key,
+                "category": ei[0], "price": ei[2],
+                "unit": ei[1], "price_type": "참조가",
+                "emoji": ei[5],
+            }
+            continue
+
+        info = _infer_ingredient_full(key)
+        if info and info["price"] > 0:
+            result[raw_name] = {
+                "item_key": key, "name": key,
+                "category": info["category"], "price": info["price"],
+                "unit": info["unit"], "price_type": "AI추론",
+                "emoji": EMOJI_MAP.get(key, "🛒"),
+            }
+        else:
+            result[raw_name] = {
+                "item_key": key, "name": key,
+                "category": "기타", "price": 0,
+                "unit": "", "price_type": "미확인", "emoji": "❓",
+            }
+
+    return result

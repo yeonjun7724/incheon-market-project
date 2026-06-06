@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import { MapProvider } from "react-map-gl/mapbox";
 import { useApp } from "@/lib/store";
 import { MapTools } from "@/components/map/MapTools";
+import { StoreInfoCard } from "@/components/map/StoreInfoCard";
 import { BottomNav } from "@/components/panels/BottomNav";
 import { SearchBar } from "@/components/panels/SearchBar";
 import { ConditionPanel } from "@/components/panels/ConditionPanel";
@@ -147,6 +148,7 @@ export default function Home() {
       <main>
         <MapCanvas priceLayerOn={priceLayerOn} />
         <SearchBar />
+        <StoreInfoCard />
         <MapTools
           priceLayerOn={priceLayerOn}
           onTogglePriceLayer={() => setPriceLayerOn((v) => !v)}

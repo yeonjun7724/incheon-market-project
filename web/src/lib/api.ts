@@ -27,6 +27,15 @@ export const getStores  = (lat?: number, lng?: number, radius = 3000, gu?: strin
 // DB 기반 (items_seed.csv 제거됨)
 export const getItems   = () => api<Item[]>("/items");
 export const getDbItems = () => api<DbItem[]>("/items/db");
+export const inferItemPrices = (names: string[]) =>
+  api<Record<string, DbItem>>("/items/infer", {
+    method: "POST", body: JSON.stringify({ names }),
+  });
+
+export const getStoreItems = (storeId: string, storeName = "", storeType = "") =>
+  api<{ items: string[]; prices: Record<string, number>; source: string }>(
+    `/stores/${encodeURIComponent(storeId)}/items?store_name=${encodeURIComponent(storeName)}&store_type=${encodeURIComponent(storeType)}`
+  );
 
 export const getRecipe    = (dish: string) =>
   api<Recipe>(`/recipes/${encodeURIComponent(dish)}`);

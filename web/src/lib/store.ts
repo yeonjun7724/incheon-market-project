@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { PanelKey, RoutePlans, RouteWithMapbox } from "./types";
+import type { PanelKey, RoutePlans, RouteWithMapbox, Store } from "./types";
 
 interface AppState {
   // 위치/지도
@@ -12,6 +12,10 @@ interface AppState {
   // 지도 스타일
   mapStyle: string;
   toggleMapStyle: () => void;
+
+  // 선택된 상점 (StoreInfoCard용)
+  selectedStore: Store | null;
+  setSelectedStore: (s: Store | null) => void;
 
   // 조건
   budget: number;
@@ -51,8 +55,8 @@ interface AppState {
 }
 
 export const useApp = create<AppState>((set) => ({
-  lat: 37.4844,
-  lng: 126.6569,
+  lat: 37.4563,
+  lng: 126.7052,
   radiusM: 3000,
   setLoc: (lat, lng) => set({ lat, lng }),
   setRadius: (radiusM) => set({ radiusM }),
@@ -63,6 +67,9 @@ export const useApp = create<AppState>((set) => ({
       ? "mapbox://styles/mapbox/streets-v12"
       : "mapbox://styles/mapbox/navigation-night-v1",
   })),
+
+  selectedStore: null,
+  setSelectedStore: (selectedStore) => set({ selectedStore }),
 
   budget: 50000,
   household: 2,

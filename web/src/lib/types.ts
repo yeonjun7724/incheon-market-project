@@ -30,7 +30,8 @@ export interface DbItem {
   category: string;
   price: number;
   unit: string;
-  price_type: "소매가" | "도매중앙값";
+  price_type: string;
+  emoji?: string;
 }
 
 export interface Recipe {

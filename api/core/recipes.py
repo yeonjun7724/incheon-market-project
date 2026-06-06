@@ -197,13 +197,46 @@ def learn_store_from_receipt(store_id: str, store_name: str, items: list[dict]) 
     }
 
 
-def get_store_items(store_id: str, store_name: str) -> dict:
+def get_store_items(store_id: str) -> dict:
     if store_id in _STORE_ITEM_CACHE:
         cached = _STORE_ITEM_CACHE[store_id]
         return {"items": cached["items"], "source": cached["source"],
                 "prices": cached.get("prices", {})}
-    items = infer_store_items_by_name(store_name)
-    return {"items": items, "source": "name_inference", "prices": {}}
+    return {}
+
+
+_STORE_AI_CACHE: dict[str, list[str]] = {}
+
+
+def infer_store_items_ai(store_name: str, store_type: str = "") -> list[str]:
+    """가게명·업종으로 취급 품목 5개를 AI 추론. 캐시 후 반환."""
+    cache_key = f"{store_name}:{store_type}"
+    if cache_key in _STORE_AI_CACHE:
+        return _STORE_AI_CACHE[cache_key]
+
+    raw = _call_openai(
+        system=(
+            "당신은 한국 소매 유통 전문가입니다. "
+            "가게 이름과 업종을 주면 그 가게에서 주로 파는 식재료·식품 품목 5가지를 "
+            'JSON 배열로만 답하세요. 형식: {"items": ["품목1", "품목2", ...]} '
+            "품목은 한국 마트에서 쓰는 간단한 이름으로(예: 대파, 계란, 돼지고기 등)."
+        ),
+        user=f"가게명: {store_name}, 업종: {store_type or '일반식품점'}",
+        max_tokens=120,
+    )
+    items: list[str] = []
+    if raw:
+        try:
+            obj = json.loads(raw)
+            items = [str(x) for x in obj.get("items", []) if x][:5]
+        except Exception:
+            pass
+
+    if not items:
+        items = infer_store_items_by_name(store_name)[:5]
+
+    _STORE_AI_CACHE[cache_key] = items
+    return items
 
 
 # ──────────────────────────────────────────────────────────────

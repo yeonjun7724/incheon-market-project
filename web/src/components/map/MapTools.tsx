@@ -62,7 +62,7 @@ export function MapTools({ onTogglePriceLayer: _onTogglePriceLayer, priceLayerOn
 
   const TOOLS = [
     { icon: "◎",  label: "현위치",       onClick: goMyLocation },
-    { icon: "📌", label: "즐겨찾기",      onClick: () => setPanel("favorites") },
+    { icon: "⭐", label: "즐겨찾기",      onClick: () => setPanel("favorites") },
     { icon: "🗂",  label: "지도 스타일",  onClick: toggleMapStyle },
     { icon: "⛶",  label: "인천 전체보기", onClick: fitIncheon },
   ];
