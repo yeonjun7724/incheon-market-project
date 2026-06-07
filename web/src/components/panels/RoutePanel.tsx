@@ -16,7 +16,7 @@ export function RoutePanel() {
   const {
     lat, lng, radiusM, picked, routePlans, routeChoice,
     setRoutePlans, setRouteChoice, setPanel, setMapboxRoute, setAllMapboxRoutes,
-    budget, household, pref, useMarket,
+    budget, household, pref, useMarket, travelMode,
   } = useApp();
 
   const [mbRoutes, setMbRoutes] = useState<Record<string, RouteWithMapbox | null>>({});
@@ -47,7 +47,7 @@ export function RoutePanel() {
       Object.entries(routePlans).map(async ([key, plan]) => {
         if (!plan?.stops?.length) return [key, null] as const;
         const wp: [number, number][] = plan.stops.map((s) => [s.lng, s.lat]);
-        const r = await getMapboxRoute([lng, lat], wp, token).catch(() => null);
+        const r = await getMapboxRoute([lng, lat], wp, token, travelMode).catch(() => null);
         return [key, r] as const;
       })
     ).then((results) => {
@@ -59,7 +59,7 @@ export function RoutePanel() {
       setAllMapboxRoutes(validRoutes);
       setLoadingMb(false);
     });
-  }, [routePlans, lat, lng]);
+  }, [routePlans, lat, lng, travelMode]);
 
   function handleChoose(key: string) {
     const sel = routeChoice === key;

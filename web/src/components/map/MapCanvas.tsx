@@ -16,6 +16,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
   const {
     lat, lng, radiusM, routePlans, routeChoice, setLoc,
     mapStyle, mapboxRoute, setMapboxRoute, allMapboxRoutes,
+    travelMode, setTravelMode,
   } = useApp();
   const [stores, setStores]   = useState<Store[]>([]);
   const [tooltip, setTooltip] = useState<Tooltip | null>(null);
@@ -53,8 +54,8 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
     if (!token || !plan.stops.length) return;
     const waypoints: [number, number][] = plan.stops.map((s) => [s.lng, s.lat]);
-    getMapboxRoute([lng, lat], waypoints, token).then((r) => setMapboxRoute(r));
-  }, [routeChoice, routePlans, lat, lng, setMapboxRoute]);
+    getMapboxRoute([lng, lat], waypoints, token, travelMode).then((r) => setMapboxRoute(r));
+  }, [routeChoice, routePlans, lat, lng, setMapboxRoute, travelMode]);
 
   // ── GeoJSON ─────────────────────────────────────────────────
   const geojson = useMemo(() => ({
@@ -68,18 +69,6 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
       geometry: { type: "Point" as const, coordinates: [s.lng, s.lat] },
     })),
   }), [stores]);
-
-  const plan = routeChoice ? routePlans[routeChoice] : null;
-    if (!plan) return null;
-    return {
-      type: "Feature" as const,
-      geometry: {
-        type: "LineString" as const,
-        coordinates: [[lng, lat], ...plan.stops.map((s) => [s.lng, s.lat])],
-      },
-      properties: {},
-    };
-  }, [mapboxRoute, routeChoice, routePlans, lat, lng]);
 
   const plan = routeChoice ? routePlans[routeChoice] : null;
 
@@ -511,38 +500,66 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
         </div>
       )}
 
-      {/* Mapbox 경로 뱃지 */}
-      {mapboxRoute && plan && (() => {
-        const walkM = Math.round(mapboxRoute.duration_s / 60);
-        const shopM = plan.n_stops * 10;
-        const items = [
-          { icon: "🗺️", val: `${(mapboxRoute.distance_m/1000).toFixed(1)}km` },
-          { icon: "🚶", val: `${walkM}분` },
-          { icon: "🛒", val: `${shopM}분` },
-          { icon: "⏱", val: `${walkM + shopM}분` },
-        ];
-        return (
+      {/* 이동 수단 토글 + 경로 뱃지 */}
+      {plan && (
+        <div style={{
+          position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)",
+          zIndex: 600, display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+        }}>
+          {/* 도보 / 차량 토글 */}
           <div style={{
-            position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)",
-            zIndex: 600,
-            background: "rgba(255,255,255,0.96)",
+            display: "flex", borderRadius: 999, overflow: "hidden",
             border: "1px solid rgba(26,34,51,0.12)",
-            borderRadius: 20,
-            padding: "8px 16px",
-            display: "flex", gap: 14, alignItems: "center",
+            background: "rgba(255,255,255,0.96)",
             backdropFilter: "blur(12px)",
-            boxShadow: "0 2px 12px rgba(26,34,51,0.10)",
-            whiteSpace: "nowrap",
+            boxShadow: "0 2px 8px rgba(26,34,51,0.08)",
           }}>
-            {items.map(({ icon, val }) => (
-              <div key={val} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                <span style={{ fontSize: 14 }}>{icon}</span>
-                <span style={{ fontSize: 12, fontWeight: 800, color: "#1a2233", whiteSpace: "nowrap" }}>{val}</span>
-              </div>
+            {(["walking", "driving"] as const).map((m) => (
+              <button key={m} onClick={() => setTravelMode(m)}
+                style={{
+                  padding: "5px 14px", fontSize: 12, fontWeight: 700,
+                  background: travelMode === m ? "#0077b6" : "transparent",
+                  color: travelMode === m ? "#fff" : "#4a5a78",
+                  border: "none", cursor: "pointer", transition: "all 0.15s",
+                  whiteSpace: "nowrap",
+                }}>
+                {m === "walking" ? "🚶 도보" : "🚗 차량"}
+              </button>
             ))}
           </div>
-        );
-      })()}
+
+          {/* 거리/시간 뱃지 */}
+          {mapboxRoute && (() => {
+            const moveM = Math.round(mapboxRoute.duration_s / 60);
+            const shopM = plan.n_stops * 10;
+            const modeIcon = travelMode === "driving" ? "🚗" : "🚶";
+            const modeLabel = travelMode === "driving" ? "차량" : "도보";
+            return (
+              <div style={{
+                background: "rgba(255,255,255,0.96)",
+                border: "1px solid rgba(26,34,51,0.12)",
+                borderRadius: 20, padding: "8px 16px",
+                display: "flex", gap: 14, alignItems: "center",
+                backdropFilter: "blur(12px)",
+                boxShadow: "0 2px 12px rgba(26,34,51,0.10)",
+                whiteSpace: "nowrap",
+              }}>
+                {[
+                  { icon: "🗺️",      val: `${(mapboxRoute.distance_m/1000).toFixed(1)}km` },
+                  { icon: modeIcon,  val: `${moveM}분`, label: modeLabel },
+                  { icon: "🛒",      val: `${shopM}분` },
+                  { icon: "⏱",      val: `${moveM + shopM}분` },
+                ].map(({ icon, val }) => (
+                  <div key={val} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                    <span style={{ fontSize: 14 }}>{icon}</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: "#1a2233" }}>{val}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </div>
+      )}
       </div>
     </>
   );

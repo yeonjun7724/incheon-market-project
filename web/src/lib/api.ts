@@ -76,11 +76,12 @@ export async function getMapboxRoute(
   origin: [number, number],
   waypoints: [number, number][],
   accessToken: string,
+  profile: "walking" | "driving" = "walking",
 ): Promise<RouteWithMapbox | null> {
   if (!waypoints.length) return null;
   const coords = [origin, ...waypoints].map(([lng, lat]) => `${lng},${lat}`).join(";");
   const url =
-    `https://api.mapbox.com/directions/v5/mapbox/walking/${coords}` +
+    `https://api.mapbox.com/directions/v5/mapbox/${profile}/${coords}` +
     `?geometries=geojson&overview=full&steps=false&access_token=${accessToken}`;
   try {
     const res  = await fetch(url);
