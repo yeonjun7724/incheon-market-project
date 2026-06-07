@@ -21,7 +21,8 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
   const [tooltip, setTooltip] = useState<Tooltip | null>(null);
   const [fetchKey, setFetchKey] = useState(0);
   const mapRef = useRef<MapRef | null>(null);
-  const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressStartRef = useRef<{ x: number; y: number } | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const dashOffsetRef = useRef(0);
   const isDark = mapStyle.includes("dark");
@@ -243,24 +244,42 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
     setLoc(e.lngLat.lat, e.lngLat.lng);
   }
 
-  // 모바일 더블탭 → 위치이동 (touchend 기반)
-  function handleTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
-    const touch = e.changedTouches[0];
+  // ── 모바일 롱프레스(0.6초) → 내 위치 이동 ──────────────────
+  // 더블탭 줌과 완전히 별개의 제스처라 충돌 없음
+  function handleTouchStart(e: React.TouchEvent<HTMLDivElement>) {
+    const touch = e.touches[0];
     if (!touch) return;
-    const now = Date.now();
-    const last = lastTapRef.current;
-    if (last && now - last.time < 350 &&
-        Math.abs(touch.clientX - last.x) < 30 &&
-        Math.abs(touch.clientY - last.y) < 30) {
-      // 더블탭 확인 → 지도 좌표로 변환
+    longPressStartRef.current = { x: touch.clientX, y: touch.clientY };
+    longPressTimerRef.current = setTimeout(() => {
       const map = mapRef.current?.getMap();
-      if (!map) return;
+      const start = longPressStartRef.current;
+      if (!map || !start) return;
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      const lngLat = map.unproject([touch.clientX - rect.left, touch.clientY - rect.top]);
+      const lngLat = map.unproject([start.x - rect.left, start.y - rect.top]);
+      // 진동 피드백 (지원 기기만)
+      if (navigator.vibrate) navigator.vibrate(40);
       setLoc(lngLat.lat, lngLat.lng);
-      lastTapRef.current = null;
-    } else {
-      lastTapRef.current = { time: now, x: touch.clientX, y: touch.clientY };
+    }, 600);
+  }
+
+  function handleTouchEnd() {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    longPressStartRef.current = null;
+  }
+
+  function handleTouchMove(e: React.TouchEvent<HTMLDivElement>) {
+    // 손가락이 10px 이상 움직이면 롱프레스 취소
+    const touch = e.touches[0];
+    const start = longPressStartRef.current;
+    if (!touch || !start) return;
+    if (Math.abs(touch.clientX - start.x) > 10 || Math.abs(touch.clientY - start.y) > 10) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
     }
   }
 
@@ -268,7 +287,9 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
     <>
       <div
         style={{ position: "fixed", inset: 0 }}
+        onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
+        onTouchMove={handleTouchMove}
       >
       <Map
         id="main"
@@ -498,22 +519,37 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
       )}
 
       {/* Mapbox 경로 뱃지 */}
-      {mapboxRoute && plan && (
-        <div style={{
-          position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)",
-          zIndex: 600,
-          background: "rgba(255,255,255,0.96)",
-          border: "1px solid rgba(26,34,51,0.12)",
-          borderRadius: 20, padding: "6px 18px",
-          display: "flex", gap: 16,
-          backdropFilter: "blur(12px)", color: "#1a2233", fontSize: 12,
-        }}>
-          <span>🗺️ <b>{(mapboxRoute.distance_m / 1000).toFixed(1)}km</b></span>
-          <span>🚶 <b>{Math.round(mapboxRoute.duration_s / 60)}분</b></span>
-          <span>🛒 구입 <b>{plan.n_stops * 10}분</b></span>
-          <span>⏱ <b>{Math.round(mapboxRoute.duration_s / 60) + plan.n_stops * 10}분</b></span>
-        </div>
-      )}
+      {mapboxRoute && plan && (() => {
+        const walkM = Math.round(mapboxRoute.duration_s / 60);
+        const shopM = plan.n_stops * 10;
+        const items = [
+          { icon: "🗺️", val: `${(mapboxRoute.distance_m/1000).toFixed(1)}km` },
+          { icon: "🚶", val: `${walkM}분` },
+          { icon: "🛒", val: `${shopM}분` },
+          { icon: "⏱", val: `${walkM + shopM}분` },
+        ];
+        return (
+          <div style={{
+            position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)",
+            zIndex: 600,
+            background: "rgba(255,255,255,0.96)",
+            border: "1px solid rgba(26,34,51,0.12)",
+            borderRadius: 20,
+            padding: "8px 16px",
+            display: "flex", gap: 14, alignItems: "center",
+            backdropFilter: "blur(12px)",
+            boxShadow: "0 2px 12px rgba(26,34,51,0.10)",
+            whiteSpace: "nowrap",
+          }}>
+            {items.map(({ icon, val }) => (
+              <div key={val} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                <span style={{ fontSize: 14 }}>{icon}</span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: "#1a2233", whiteSpace: "nowrap" }}>{val}</span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
     </>
   );
 }

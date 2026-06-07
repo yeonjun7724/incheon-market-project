@@ -159,21 +159,24 @@ export function RoutePanel() {
               }
             </div>
 
-            {/* 지표 */}
-            <div className="grid grid-cols-4 gap-2">
+            {/* 지표 — 4열 가로 나열, 줄바꿈 절대 없음 */}
+            <div className="grid grid-cols-4 gap-1.5">
               {[
-                { v: `${p.budget.toLocaleString()}`, unit: "원", l: "예산" },
-                { v: distKm, unit: "km", l: "거리" },
-                { v: `${walkMin}`, unit: "분", l: mb ? "도보" : "추정" },
-                { v: `${totalMin}`, unit: "분", l: "총소요" },
+                { v: p.budget.toLocaleString(), unit: "원", l: "예산" },
+                { v: distKm,                    unit: "km",  l: "거리" },
+                { v: String(walkMin),           unit: "분",  l: mb ? "실측" : "추정" },
+                { v: String(totalMin),          unit: "분",  l: "총소요" },
               ].map(({ v, unit, l }) => (
-                <div key={l} className="rounded-xl text-center py-2.5 px-1"
+                <div key={l} className="rounded-xl text-center py-2 px-1"
                   style={{ background: sel ? `${s.color}10` : "rgba(26,34,51,0.04)" }}>
-                  <div className="flex items-baseline justify-center gap-0.5">
-                    <span className="text-[15px] font-black font-mono" style={{ color: sel ? s.color : "#1a2233" }}>{v}</span>
-                    <span className="text-[10px] font-bold" style={{ color: sel ? s.color : "#8a96b0" }}>{unit}</span>
+                  {/* 숫자+단위 한 줄 고정 */}
+                  <div className="flex items-baseline justify-center gap-[1px] whitespace-nowrap overflow-hidden">
+                    <span className="text-[13px] font-black font-mono leading-none"
+                      style={{ color: sel ? s.color : "#1a2233" }}>{v}</span>
+                    <span className="text-[10px] font-bold leading-none"
+                      style={{ color: sel ? s.color : "#8a96b0" }}>{unit}</span>
                   </div>
-                  <div className="text-[10px] text-[#8a96b0] mt-0.5">{l}</div>
+                  <div className="text-[9px] text-[#8a96b0] mt-0.5 whitespace-nowrap">{l}</div>
                 </div>
               ))}
             </div>
