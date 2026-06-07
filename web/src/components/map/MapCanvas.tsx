@@ -269,7 +269,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
             if (map.hasImage(id)) return;
             const size = 48;
             const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 48 48">
-              <circle cx="24" cy="24" r="21" fill="${color}" opacity="0.18"/>
+              <circle cx="24" cy="24" r="21" fill="${color}" opacity="0.30"/>
               <circle cx="24" cy="24" r="15" fill="${color}"/>
               <circle cx="24" cy="24" r="15" fill="none" stroke="white" stroke-width="1.5"/>
               <text x="24" y="29" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="14" fill="white">${symbol}</text>
@@ -304,10 +304,10 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
           {/* 헤일로 링 */}
           <Layer id="cluster-ring" type="circle" filter={["has", "point_count"]}
             paint={{
-              "circle-color": "rgba(0,119,182,0.10)",
+              "circle-color": "rgba(0,119,182,0.22)",
               "circle-radius": ["step", ["get", "point_count"], 30, 10, 39, 30, 50],
               "circle-stroke-width": 1,
-              "circle-stroke-color": "rgba(0,119,182,0.18)",
+              "circle-stroke-color": "rgba(0,119,182,0.45)",
             }}
           />
           {/* 채움 원 — 개수에 따라 밝은→진한 블루 */}
@@ -315,13 +315,13 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
             paint={{
               "circle-color": [
                 "step", ["get", "point_count"],
-                "#48cae4", 5,
-                "#0096c7", 10,
-                "#0077b6", 30,
-                "#023e8a",
+                "#0096c7", 5,
+                "#0077b6", 10,
+                "#03045e", 30,
+                "#03045e",
               ],
               "circle-radius": ["step", ["get", "point_count"], 20, 5, 26, 10, 32, 30, 40],
-              "circle-stroke-width": 2,
+              "circle-stroke-width": 3,
               "circle-stroke-color": "#ffffff",
             }}
           />
@@ -345,19 +345,19 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
           <Layer id="unclustered-shadow" type="circle" filter={["!", ["has", "point_count"]]}
             paint={{
               "circle-color": ["match", ["get", "type"],
-                "전통시장",   "rgba(0,119,182,0.13)",
-                "골목상권",   "rgba(247,127,0,0.13)",
-                "동네식품점", "rgba(123,45,139,0.13)",
-                "대형유통",   "rgba(45,158,95,0.13)",
-                "rgba(80,80,80,0.13)"],
+                "전통시장",   "rgba(0,119,182,0.28)",
+                "골목상권",   "rgba(247,127,0,0.28)",
+                "동네식품점", "rgba(123,45,139,0.28)",
+                "대형유통",   "rgba(45,158,95,0.28)",
+                "rgba(80,80,80,0.25)"],
               "circle-radius": 16,
               "circle-stroke-width": 1,
               "circle-stroke-color": ["match", ["get", "type"],
-                "전통시장",   "rgba(0,119,182,0.20)",
-                "골목상권",   "rgba(247,127,0,0.20)",
-                "동네식품점", "rgba(123,45,139,0.20)",
-                "대형유통",   "rgba(45,158,95,0.20)",
-                "rgba(80,80,80,0.15)"],
+                "전통시장",   "rgba(0,119,182,0.50)",
+                "골목상권",   "rgba(247,127,0,0.50)",
+                "동네식품점", "rgba(123,45,139,0.50)",
+                "대형유통",   "rgba(45,158,95,0.50)",
+                "rgba(80,80,80,0.40)"],
             }}
           />
           {/* 마커 본체 — SVG 이미지 (M/G/N/S 알파벳으로 업종 표시) */}
@@ -369,7 +369,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
                 "동네식품점", "marker-local",
                 "대형유통",   "marker-mart",
                 "marker-market"],
-              "icon-size": 0.5,
+              "icon-size": 0.65,
               "icon-allow-overlap": true,
               "icon-ignore-placement": true,
             }}
@@ -387,32 +387,44 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
         {unselectedRoutes.map(({ key, color, geoData }) => (
           <Source key={`route-bg-${key}`} id={`route-bg-${key}`} type="geojson" data={geoData}>
             <Layer id={`route-bg-line-${key}`} type="line"
+              layout={{ "line-cap": "round", "line-join": "round" }}
               paint={{
                 "line-color": color,
-                "line-width": 2,
-                "line-opacity": 0.30,
-                "line-dasharray": [3, 3],
+                "line-width": 3,
+                "line-opacity": 0.45,
+                "line-dasharray": [2, 3],
               }}
             />
           </Source>
         ))}
 
-        {/* 선택된 경로 — 구간별 다른 색 */}
-        {routeSegments.map(({ id, color, coords }) => (
+        {/* 선택된 경로 — 구간별 다른 색, 외곽선 효과 */}
+        {routeSegments.map(({ id, color, coords }) => coords.length >= 2 ? (
           <Source key={`seg-${id}`} id={`seg-${id}`} type="geojson" data={{
             type: "Feature" as const,
             geometry: { type: "LineString" as const, coordinates: coords },
             properties: {},
           }}>
+            {/* 흰 외곽선 — 지도 배경과 분리 */}
+            <Layer id={`seg-line-outline-${id}`} type="line"
+              layout={{ "line-cap": "round", "line-join": "round" }}
+              paint={{
+                "line-color": "#ffffff",
+                "line-width": 9,
+                "line-opacity": 0.85,
+              }}
+            />
+            {/* 색상 라인 */}
             <Layer id={`seg-line-${id}`} type="line"
+              layout={{ "line-cap": "round", "line-join": "round" }}
               paint={{
                 "line-color": color,
-                "line-width": 5,
-                "line-opacity": 0.95,
+                "line-width": 6,
+                "line-opacity": 1,
               }}
             />
           </Source>
-        ))}
+        ) : null)}
 
         {/* 경유지 번호 마커 — 구간 색과 동일 */}
         {plan?.stops.map((s, i) => (

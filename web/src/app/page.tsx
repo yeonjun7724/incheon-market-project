@@ -54,7 +54,7 @@ function Sheet({
         <div className="shrink-0 px-5 pt-3 pb-2">
           <div className="mx-auto mb-3 h-1 w-10 rounded-full" style={{ background: "rgba(26,34,51,0.15)" }} />
           <div className="flex items-center justify-between">
-            <h2 className="text-[15px] font-extrabold text-[#1a2233]">{title}</h2>
+            <h2 className="text-[16px] font-extrabold text-[#1a2233]">{title}</h2>
             <button onClick={onClose}
               className="flex h-7 w-7 items-center justify-center rounded-full text-lg leading-none transition hover:bg-[#e63946]/10"
               style={{ background: "rgba(26,34,51,0.06)", color: "#4a5a78" }}>
@@ -119,9 +119,13 @@ function RouteSidebar({
       >
         <div className="flex items-center justify-between px-4 py-3 shrink-0"
           style={{ borderBottom: "1px solid rgba(26,34,51,0.08)" }}>
-          <h2 className="text-[14px] font-bold text-[#1a2233]">🏪 추천 경로</h2>
-          <button onClick={onClose} className="text-xl leading-none transition hover:text-[#e63946]"
-            style={{ color: "#8a96b0" }}>×</button>
+          <div>
+            <h2 className="text-[15px] font-extrabold text-[#1a2233]">추천 경로</h2>
+            <p className="text-[11px] text-[#8a96b0]">경로를 선택하면 지도에 표시돼요</p>
+          </div>
+          <button onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-lg leading-none transition"
+            style={{ background: "rgba(26,34,51,0.06)", color: "#4a5a78" }}>×</button>
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-3 [scrollbar-width:thin]">
           <RoutePanel />
