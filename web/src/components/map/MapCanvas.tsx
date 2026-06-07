@@ -24,8 +24,6 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressStartRef = useRef<{ x: number; y: number } | null>(null);
   const animFrameRef = useRef<number | null>(null);
-  const dashOffsetRef = useRef(0);
-  const isDark = mapStyle.includes("dark");
 
   // ── 상점 로드 (버그 수정: retry + 방어) ──────────────────────
   const loadStores = useCallback(async () => {
@@ -71,10 +69,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
     })),
   }), [stores]);
 
-  // ── 경로 geometry ─────────────────────────────────────────────
-  const routeGeoData = useMemo(() => {
-    if (mapboxRoute) return { type: "Feature" as const, geometry: mapboxRoute.geometry, properties: {} };
-    const plan = routeChoice ? routePlans[routeChoice] : null;
+  const plan = routeChoice ? routePlans[routeChoice] : null;
     if (!plan) return null;
     return {
       type: "Feature" as const,
@@ -137,8 +132,6 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
     최소거리: "#0077b6",   // 블루 (마커 색과 통일)
     최소경유: "#2d9e5f",   // 그린 (대형유통 마커 색과 통일)
   };
-  const routeColor = routeChoice ? (STRAT_COLOR[routeChoice] ?? "#0077b6") : "#0077b6";
-
   // 구간별 색상 팔레트 (1→2 파랑, 2→3 오렌지, 3→4 그린, 4→5 퍼플...)
   const SEG_COLORS = ["#0077b6", "#e85d04", "#2d9e5f", "#7b2d8b", "#c1121f", "#f77f00"];
 
@@ -550,6 +543,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
           </div>
         );
       })()}
+      </div>
     </>
   );
 }
