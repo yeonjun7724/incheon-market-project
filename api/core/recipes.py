@@ -314,11 +314,35 @@ def _assign_items(ingredients: list[str], items_df: pd.DataFrame,
             if key:
                 items_by_key[key] = row
 
+    # 업종별 기본 취급 품목 (DB/AI 캐시 없을 때 폴백)
+    _TYPE_DEFAULT: dict[str, list[str]] = {
+        "전통시장":   ["대파", "감자", "양파", "마늘", "고추", "배추", "무", "계란", "두부",
+                      "돼지고기", "소고기", "닭고기", "생선", "고추장", "된장", "간장", "소금",
+                      "고춧가루", "참기름", "들기름", "버섯", "당근", "오이", "애호박"],
+        "골목상권":   ["대파", "감자", "양파", "마늘", "계란", "두부", "라면", "김치",
+                      "고추장", "된장", "간장", "소금", "식용유", "버터", "우유", "음료"],
+        "동네식품점": ["대파", "감자", "양파", "마늘", "계란", "두부", "라면", "과자",
+                      "음료", "우유", "소금", "간장", "고추장", "참기름"],
+        "대형유통":   ["대파", "감자", "양파", "마늘", "고추", "배추", "무", "계란", "두부",
+                      "돼지고기", "소고기", "닭고기", "생선", "새우", "오징어", "고추장",
+                      "된장", "간장", "소금", "고춧가루", "참기름", "식용유", "버터", "우유",
+                      "치즈", "요거트", "라면", "즉석밥", "과자", "음료", "당근", "오이",
+                      "애호박", "버섯", "시금치", "브로콜리", "파프리카", "토마토"],
+    }
+
     result: dict[str, dict] = {}
     for _, store in stores_df.iterrows():
         store_id = store["id"]
+        store_name = str(store["name"])
+        store_type = str(store["type"])
         store_info = get_store_items(store_id)
         carried = store_info["items"]
+
+        # 캐시 미스면 AI 추론 → 업종 기본값 폴백
+        if not carried:
+            carried = infer_store_items_ai(store_name, store_type)
+        if not carried:
+            carried = _TYPE_DEFAULT.get(store_type, _TYPE_DEFAULT["동네식품점"])
 
         matched_ings = []
         for ing in ingredients:
