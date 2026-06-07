@@ -21,16 +21,29 @@ export function RoutePanel() {
 
   const [mbRoutes, setMbRoutes] = useState<Record<string, RouteWithMapbox | null>>({});
   const [loadingPlan, setLoadingPlan] = useState(false);
+  const [planError, setPlanError] = useState(false);
   const [loadingMb, setLoadingMb] = useState(false);
 
   // 경로 추천
   useEffect(() => {
     if (picked.length && Object.keys(routePlans).length === 0) {
       setLoadingPlan(true);
+      const controller = new AbortController();
       recommendRoutes({ ingredients: picked, lat, lng, radius: radiusM, budget, household, pref, use_market: useMarket })
-        .then(setRoutePlans)
-        .catch(console.error)
+        .then((plans) => {
+          if (!plans || Object.keys(plans).length === 0) {
+            setLoadingPlan(false);
+            return;
+          }
+          setRoutePlans(plans);
+        })
+        .catch((e) => {
+          console.error("경로 추천 실패:", e);
+          setPlanError(true);
+          setLoadingPlan(false);
+        })
         .finally(() => setLoadingPlan(false));
+      return () => controller.abort();
     }
   }, [picked, routePlans, lat, lng, radiusM, setRoutePlans]);
 
@@ -70,6 +83,19 @@ export function RoutePanel() {
     <div className="flex flex-col items-center gap-3 py-8">
       <div className="text-4xl animate-spin">⚙️</div>
       <p className="text-[13px] text-[#0077b6] animate-pulse">경로 계산 중…</p>
+    </div>
+  );
+
+  if (planError) return (
+    <div className="flex flex-col items-center gap-3 py-8 text-center px-4">
+      <div className="text-3xl">⚠️</div>
+      <p className="text-[14px] font-bold text-[#1a2233]">경로 계산에 실패했어요</p>
+      <p className="text-[12px] text-[#8a96b0]">서버 연결을 확인하거나 반경을 늘려보세요</p>
+      <button
+        onClick={() => { setPlanError(false); setRoutePlans({}); }}
+        className="mt-2 rounded-xl px-5 py-2 text-[13px] font-bold text-white"
+        style={{ background: "#0077b6" }}
+      >다시 시도</button>
     </div>
   );
 

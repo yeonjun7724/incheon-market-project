@@ -155,12 +155,12 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
           ];
           MARKER_DEFS.forEach(({ id, color, symbol }) => {
             if (map.hasImage(id)) return;
-            const size = 64;
-            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 64 64">
-              <circle cx="32" cy="32" r="28" fill="${color}" opacity="0.18"/>
-              <circle cx="32" cy="32" r="20" fill="${color}"/>
-              <circle cx="32" cy="32" r="20" fill="none" stroke="white" stroke-width="3"/>
-              <text x="32" y="38" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="18" fill="white">${symbol}</text>
+            const size = 48;
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 48 48">
+              <circle cx="24" cy="24" r="21" fill="${color}" opacity="0.18"/>
+              <circle cx="24" cy="24" r="15" fill="${color}"/>
+              <circle cx="24" cy="24" r="15" fill="none" stroke="white" stroke-width="2.5"/>
+              <text x="24" y="29" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="14" fill="white">${symbol}</text>
             </svg>`;
             const img = new Image(size, size);
             img.onload = () => { if (!map.hasImage(id)) map.addImage(id, img, { sdf: false }); };
@@ -238,7 +238,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
                 "동네식품점", "rgba(123,45,139,0.13)",
                 "대형유통",   "rgba(45,158,95,0.13)",
                 "rgba(80,80,80,0.13)"],
-              "circle-radius": 26,
+              "circle-radius": 20,
               "circle-stroke-width": 1.5,
               "circle-stroke-color": ["match", ["get", "type"],
                 "전통시장",   "rgba(0,119,182,0.28)",
@@ -257,7 +257,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
                 "동네식품점", "marker-local",
                 "대형유통",   "marker-mart",
                 "marker-market"],
-              "icon-size": 0.6,
+              "icon-size": 0.5,
               "icon-allow-overlap": true,
               "icon-ignore-placement": true,
             }}

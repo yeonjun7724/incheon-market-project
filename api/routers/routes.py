@@ -61,13 +61,19 @@ def _serialize(plan: dict) -> dict:
 
 @router.post("/recommend")
 def recommend(req: RouteReq):
-    items = load_items()
-    plans = recommend_routes(
-        req.ingredients, items, _STORES, (req.lat, req.lng),
-        radius_m=req.radius,
-        budget=req.budget,
-        household=req.household,
-        pref=req.pref,
-        use_market=req.use_market,
-    )
-    return {strategy: _serialize(plan) for strategy, plan in plans.items()}
+    try:
+        items = load_items()
+        plans = recommend_routes(
+            req.ingredients, items, _STORES, (req.lat, req.lng),
+            radius_m=req.radius,
+            budget=req.budget,
+            household=req.household,
+            pref=req.pref,
+            use_market=req.use_market,
+        )
+        return {strategy: _serialize(plan) for strategy, plan in plans.items()}
+    except Exception as e:
+        import traceback, logging
+        logging.error(f"recommend_routes error: {e}\n{traceback.format_exc()}")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(e))
