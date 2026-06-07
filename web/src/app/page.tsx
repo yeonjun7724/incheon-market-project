@@ -167,7 +167,7 @@ const STEPS = [
 
 function HelpModal({ onClose }: { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-[900] flex items-end justify-center"
+    <div className="fixed inset-0 z-[1002] flex items-end justify-center"
       onClick={onClose}>
       <div className="absolute inset-0 bg-[#1a2233]/20 backdrop-blur-[2px]" />
       <div
@@ -177,7 +177,8 @@ function HelpModal({ onClose }: { onClose: () => void }) {
           border: "1px solid rgba(26,34,51,0.10)",
           borderBottom: "none",
           boxShadow: "0 -4px 32px rgba(26,34,51,0.12)",
-          maxHeight: "88dvh",
+          maxHeight: "calc(88dvh - 64px)",
+          marginBottom: 64,
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -201,8 +202,8 @@ function HelpModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* 스텝 목록 */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 [scrollbar-width:thin]"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 16px) + 24px)" }}>
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-3 [scrollbar-width:thin]"
+          style={{ paddingBottom: 16 }}>
           {STEPS.map((s, i) => (
             <div key={i} className="flex items-start gap-3 rounded-2xl p-3"
               style={{ background: "rgba(26,34,51,0.03)", border: "1px solid rgba(26,34,51,0.07)" }}>
@@ -226,15 +227,15 @@ function HelpModal({ onClose }: { onClose: () => void }) {
             <p className="text-[11px] font-bold uppercase tracking-wide text-[#8a96b0]">지도 마커 색상</p>
             <div className="grid grid-cols-2 gap-1.5">
               {[
-                { color: "#0077b6", label: "전통시장", emoji: "🏮" },
-                { color: "#f77f00", label: "골목상권", emoji: "🥬" },
-                { color: "#7b2d8b", label: "동네식품점", emoji: "🧺" },
-                { color: "#e63946", label: "대형유통", emoji: "🛒" },
-              ].map(({ color, label, emoji }) => (
+                { color: "#0077b6", label: "전통시장", symbol: "M" },
+                { color: "#f77f00", label: "골목상권", symbol: "G" },
+                { color: "#7b2d8b", label: "동네식품점", symbol: "N" },
+                { color: "#2d9e5f", label: "대형유통", symbol: "S" },
+              ].map(({ color, label, symbol }) => (
                 <div key={label} className="flex items-center gap-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full shrink-0 text-[13px]"
-                    style={{ background: color }}>
-                    {emoji}
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full shrink-0 text-[12px] font-black text-white"
+                    style={{ background: color, border: "2.5px solid white", boxShadow: `0 0 0 1.5px ${color}55` }}>
+                    {symbol}
                   </span>
                   <span className="text-[12px] text-[#4a5a78]">{label}</span>
                 </div>
@@ -256,7 +257,7 @@ export default function Home() {
   const [showHelp, setShowHelp] = useState(false);
 
   const hasRoutes = Object.keys(routePlans).length > 0;
-  const showRoutes = hasRoutes && (panel === "stores" || routeChoice !== null);
+  const showRoutes = hasRoutes && (panel === "stores" || panel === null || routeChoice !== null);
   const showSheet  = panel !== null && panel !== "stores";
 
   function closeRoutes() {

@@ -95,7 +95,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
   function handleMouseMove(e: MapMouseEvent) {
     const map = mapRef.current;
     if (!map) return;
-    const feats = map.queryRenderedFeatures(e.point, { layers: ["unclustered-bg"] });
+    const feats = map.queryRenderedFeatures(e.point, { layers: ["unclustered", "unclustered-bg"] });
     if (feats.length > 0) {
       const f = feats[0];
       setTooltip({ name: f.properties?.name ?? "", address: f.properties?.address ?? "",
@@ -144,7 +144,30 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
         onDblClick={handleDblClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        onLoad={() => setFetchKey((k) => k + 1)}
+        onLoad={(e) => {
+          const map = e.target;
+          // 업종별 SVG 마커 이미지 등록
+          const MARKER_DEFS = [
+            { id: "marker-market",   color: "#0077b6", symbol: "M" },  // 전통시장
+            { id: "marker-alley",    color: "#f77f00", symbol: "G" },  // 골목상권
+            { id: "marker-local",    color: "#7b2d8b", symbol: "N" },  // 동네식품점
+            { id: "marker-mart",     color: "#2d9e5f", symbol: "S" },  // 대형유통
+          ];
+          MARKER_DEFS.forEach(({ id, color, symbol }) => {
+            if (map.hasImage(id)) return;
+            const size = 64;
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="28" fill="${color}" opacity="0.18"/>
+              <circle cx="32" cy="32" r="20" fill="${color}"/>
+              <circle cx="32" cy="32" r="20" fill="none" stroke="white" stroke-width="3"/>
+              <text x="32" y="38" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="18" fill="white">${symbol}</text>
+            </svg>`;
+            const img = new Image(size, size);
+            img.onload = () => { if (!map.hasImage(id)) map.addImage(id, img, { sdf: false }); };
+            img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+          });
+          setFetchKey((k) => k + 1);
+        }}
       >
         {/* 내 위치 — 사람 아이콘 */}
         <Marker longitude={lng} latitude={lat} anchor="center">
@@ -165,72 +188,86 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
         <Source id="stores" type="geojson" data={geojson}
           cluster clusterMaxZoom={14} clusterRadius={50}>
 
-          {/* 클러스터 — 바깥 링 (크고 반투명) */}
+          {/* ── 클러스터 ── */}
+          {/* 헤일로 링 */}
           <Layer id="cluster-ring" type="circle" filter={["has", "point_count"]}
             paint={{
-              "circle-color": [
-                "step", ["get", "point_count"],
-                "rgba(230,57,70,0.18)", 10,
-                "rgba(193,18,31,0.18)", 30,
-                "rgba(120,0,0,0.18)",
-              ],
-              "circle-radius": ["step", ["get", "point_count"], 30, 10, 40, 30, 52],
-              "circle-stroke-width": 0,
+              "circle-color": "rgba(0,119,182,0.13)",
+              "circle-radius": ["step", ["get", "point_count"], 36, 10, 46, 30, 58],
+              "circle-stroke-width": 1.5,
+              "circle-stroke-color": "rgba(0,119,182,0.28)",
             }}
           />
-          {/* 클러스터 — 안쪽 채움 원 */}
+          {/* 채움 원 — 개수에 따라 밝은→진한 블루 */}
           <Layer id="clusters" type="circle" filter={["has", "point_count"]}
             paint={{
               "circle-color": [
                 "step", ["get", "point_count"],
-                "#e63946", 10,
-                "#c1121f", 30,
-                "#780000",
+                "#48cae4", 5,
+                "#0096c7", 10,
+                "#0077b6", 30,
+                "#023e8a",
               ],
-              "circle-opacity": 1,
-              "circle-radius": ["step", ["get", "point_count"], 20, 10, 27, 30, 36],
+              "circle-radius": ["step", ["get", "point_count"], 20, 5, 26, 10, 32, 30, 40],
               "circle-stroke-width": 3,
               "circle-stroke-color": "#ffffff",
             }}
           />
-          {/* 클러스터 숫자 */}
+          {/* 숫자 레이블 */}
           <Layer id="cluster-count" type="symbol" filter={["has", "point_count"]}
             layout={{
               "text-field": ["get", "point_count_abbreviated"],
-              "text-size": 13,
+              "text-size": ["step", ["get", "point_count"], 13, 10, 15, 30, 17],
               "text-font": ["DIN Offc Pro Bold", "Arial Unicode MS Bold"],
+              "text-allow-overlap": true,
             }}
-            paint={{ "text-color": "#ffffff" }}
+            paint={{
+              "text-color": "#ffffff",
+              "text-halo-color": "rgba(0,0,0,0.20)",
+              "text-halo-width": 1,
+            }}
           />
 
-          {/* 개별 마커 — 업종별 배경 원 */}
-          <Layer id="unclustered-bg" type="circle" filter={["!", ["has", "point_count"]]}
+          {/* ── 개별 마커 ── */}
+          {/* 헤일로 (클러스터 링과 동일한 느낌) */}
+          <Layer id="unclustered-shadow" type="circle" filter={["!", ["has", "point_count"]]}
             paint={{
               "circle-color": ["match", ["get", "type"],
-                "전통시장",   "#0077b6",
-                "골목상권",   "#f77f00",
-                "동네식품점", "#7b2d8b",
-                "대형유통",   "#e63946",
-                "#555"],
-              "circle-radius": 16,
-              "circle-stroke-width": 2.5,
-              "circle-stroke-color": "#ffffff",
+                "전통시장",   "rgba(0,119,182,0.13)",
+                "골목상권",   "rgba(247,127,0,0.13)",
+                "동네식품점", "rgba(123,45,139,0.13)",
+                "대형유통",   "rgba(45,158,95,0.13)",
+                "rgba(80,80,80,0.13)"],
+              "circle-radius": 26,
+              "circle-stroke-width": 1.5,
+              "circle-stroke-color": ["match", ["get", "type"],
+                "전통시장",   "rgba(0,119,182,0.28)",
+                "골목상권",   "rgba(247,127,0,0.28)",
+                "동네식품점", "rgba(123,45,139,0.28)",
+                "대형유통",   "rgba(45,158,95,0.28)",
+                "rgba(80,80,80,0.20)"],
             }}
           />
-          {/* 개별 마커 — 업종 이모지 */}
-          <Layer id="unclustered" type="symbol" filter={["!", ["has", "point_count"]]}
+          {/* 마커 본체 — SVG 이미지 (M/G/N/S 알파벳으로 업종 표시) */}
+          <Layer id="unclustered-bg" type="symbol" filter={["!", ["has", "point_count"]]}
             layout={{
-              "text-field": ["match", ["get", "type"],
-                "전통시장",   "🏮",
-                "골목상권",   "🥬",
-                "동네식품점", "🧺",
-                "대형유통",   "🛒",
-                "🏪"],
-              "text-size": 14,
-              "text-allow-overlap": true,
-              "text-ignore-placement": true,
+              "icon-image": ["match", ["get", "type"],
+                "전통시장",   "marker-market",
+                "골목상권",   "marker-alley",
+                "동네식품점", "marker-local",
+                "대형유통",   "marker-mart",
+                "marker-market"],
+              "icon-size": 0.6,
+              "icon-allow-overlap": true,
+              "icon-ignore-placement": true,
             }}
-            paint={{ "text-color": "#ffffff" }}
+          />
+          {/* 인터랙션용 히트 영역 (투명) */}
+          <Layer id="unclustered" type="circle" filter={["!", ["has", "point_count"]]}
+            paint={{
+              "circle-color": "rgba(0,0,0,0)",
+              "circle-radius": 18,
+            }}
           />
         </Source>
 

@@ -87,9 +87,18 @@ export function CartPanel() {
         ingredients: picked, lat, lng, radius: radiusM,
         budget, household, pref, use_market: useMarket,
       });
-      setRoutePlans(plans);
+      if (!plans || Object.keys(plans).length === 0) {
+        alert("반경 내 해당 재료를 취급하는 가게가 없어요. 반경을 늘려보세요.");
+        return;
+      }
+      // state 업데이트 순서 보장: plans 먼저 저장 후 패널 전환
       setRouteChoice(null);
-      setPanel("stores");
+      setRoutePlans(plans);
+      // 다음 렌더 사이클에 패널 전환 — hasRoutes가 true로 평가된 뒤 실행
+      setTimeout(() => setPanel("stores"), 0);
+    } catch (e) {
+      console.error("경로 추천 실패:", e);
+      alert("경로 계산 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.");
     } finally { setRouteLoading(false); }
   }
 
