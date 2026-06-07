@@ -95,7 +95,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
   function handleMouseMove(e: MapMouseEvent) {
     const map = mapRef.current;
     if (!map) return;
-    const feats = map.queryRenderedFeatures(e.point, { layers: ["unclustered"] });
+    const feats = map.queryRenderedFeatures(e.point, { layers: ["unclustered-bg"] });
     if (feats.length > 0) {
       const f = feats[0];
       setTooltip({ name: f.properties?.name ?? "", address: f.properties?.address ?? "",
@@ -139,7 +139,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
         initialViewState={{ longitude: lng, latitude: lat, zoom: 13 }}
         mapStyle={mapStyle}
         style={{ position: "fixed", inset: 0, width: "100vw", height: "100vh" }}
-        interactiveLayerIds={["clusters", "unclustered"]}
+        interactiveLayerIds={["clusters", "cluster-ring", "unclustered-bg", "unclustered"]}
         onClick={handleClick}
         onDblClick={handleDblClick}
         onMouseMove={handleMouseMove}
@@ -161,10 +161,24 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
 
         <PriceLayer visible={priceLayerOn} />
 
-        {/* 상점 — 원형 클러스터만 사용 */}
+        {/* 상점 — 도넛 클러스터 + 이모지 마커 */}
         <Source id="stores" type="geojson" data={geojson}
           cluster clusterMaxZoom={14} clusterRadius={50}>
-          {/* 클러스터 원 */}
+
+          {/* 클러스터 — 바깥 링 (크고 반투명) */}
+          <Layer id="cluster-ring" type="circle" filter={["has", "point_count"]}
+            paint={{
+              "circle-color": [
+                "step", ["get", "point_count"],
+                "rgba(230,57,70,0.18)", 10,
+                "rgba(193,18,31,0.18)", 30,
+                "rgba(120,0,0,0.18)",
+              ],
+              "circle-radius": ["step", ["get", "point_count"], 30, 10, 40, 30, 52],
+              "circle-stroke-width": 0,
+            }}
+          />
+          {/* 클러스터 — 안쪽 채움 원 */}
           <Layer id="clusters" type="circle" filter={["has", "point_count"]}
             paint={{
               "circle-color": [
@@ -173,34 +187,50 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
                 "#c1121f", 30,
                 "#780000",
               ],
-              "circle-opacity": 0.93,
-              "circle-radius": ["step", ["get", "point_count"], 20, 10, 28, 30, 38],
+              "circle-opacity": 1,
+              "circle-radius": ["step", ["get", "point_count"], 20, 10, 27, 30, 36],
               "circle-stroke-width": 3,
-              "circle-stroke-color": "#fff",
+              "circle-stroke-color": "#ffffff",
             }}
           />
           {/* 클러스터 숫자 */}
           <Layer id="cluster-count" type="symbol" filter={["has", "point_count"]}
             layout={{
               "text-field": ["get", "point_count_abbreviated"],
-              "text-size": 14,
+              "text-size": 13,
               "text-font": ["DIN Offc Pro Bold", "Arial Unicode MS Bold"],
             }}
             paint={{ "text-color": "#ffffff" }}
           />
-          {/* 개별 상점 */}
-          <Layer id="unclustered" type="circle" filter={["!", ["has", "point_count"]]}
+
+          {/* 개별 마커 — 업종별 배경 원 */}
+          <Layer id="unclustered-bg" type="circle" filter={["!", ["has", "point_count"]]}
             paint={{
               "circle-color": ["match", ["get", "type"],
-                "전통시장", "#0077b6",
-                "골목상권", "#f77f00",
+                "전통시장",   "#0077b6",
+                "골목상권",   "#f77f00",
                 "동네식품점", "#7b2d8b",
-                "대형유통", "#e63946",
+                "대형유통",   "#e63946",
                 "#555"],
-              "circle-radius": 8,
+              "circle-radius": 16,
               "circle-stroke-width": 2.5,
-              "circle-stroke-color": "#fff",
+              "circle-stroke-color": "#ffffff",
             }}
+          />
+          {/* 개별 마커 — 업종 이모지 */}
+          <Layer id="unclustered" type="symbol" filter={["!", ["has", "point_count"]]}
+            layout={{
+              "text-field": ["match", ["get", "type"],
+                "전통시장",   "🏮",
+                "골목상권",   "🥬",
+                "동네식품점", "🧺",
+                "대형유통",   "🛒",
+                "🏪"],
+              "text-size": 14,
+              "text-allow-overlap": true,
+              "text-ignore-placement": true,
+            }}
+            paint={{ "text-color": "#ffffff" }}
           />
         </Source>
 

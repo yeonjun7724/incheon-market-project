@@ -171,13 +171,13 @@ function HelpModal({ onClose }: { onClose: () => void }) {
       onClick={onClose}>
       <div className="absolute inset-0 bg-[#1a2233]/20 backdrop-blur-[2px]" />
       <div
-        className="relative w-full max-w-lg rounded-t-3xl overflow-hidden"
+        className="relative w-full max-w-lg rounded-t-3xl flex flex-col"
         style={{
           background: "rgba(255,255,255,0.98)",
           border: "1px solid rgba(26,34,51,0.10)",
           borderBottom: "none",
           boxShadow: "0 -4px 32px rgba(26,34,51,0.12)",
-          maxHeight: "80dvh",
+          maxHeight: "88dvh",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -201,8 +201,8 @@ function HelpModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* 스텝 목록 */}
-        <div className="overflow-y-auto px-5 py-4 space-y-3 [scrollbar-width:thin]"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 12px) + 16px)" }}>
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 [scrollbar-width:thin]"
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 16px) + 24px)" }}>
           {STEPS.map((s, i) => (
             <div key={i} className="flex items-start gap-3 rounded-2xl p-3"
               style={{ background: "rgba(26,34,51,0.03)", border: "1px solid rgba(26,34,51,0.07)" }}>
@@ -226,14 +226,16 @@ function HelpModal({ onClose }: { onClose: () => void }) {
             <p className="text-[11px] font-bold uppercase tracking-wide text-[#8a96b0]">지도 마커 색상</p>
             <div className="grid grid-cols-2 gap-1.5">
               {[
-                { color: "#0077b6", label: "전통시장" },
-                { color: "#f77f00", label: "골목상권" },
-                { color: "#7b2d8b", label: "동네식품점" },
-                { color: "#e63946", label: "대형유통" },
-              ].map(({ color, label }) => (
+                { color: "#0077b6", label: "전통시장", emoji: "🏮" },
+                { color: "#f77f00", label: "골목상권", emoji: "🥬" },
+                { color: "#7b2d8b", label: "동네식품점", emoji: "🧺" },
+                { color: "#e63946", label: "대형유통", emoji: "🛒" },
+              ].map(({ color, label, emoji }) => (
                 <div key={label} className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-full shrink-0 border-2 border-white shadow-sm"
-                    style={{ background: color }} />
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full shrink-0 text-[13px]"
+                    style={{ background: color }}>
+                    {emoji}
+                  </span>
                   <span className="text-[12px] text-[#4a5a78]">{label}</span>
                 </div>
               ))}
