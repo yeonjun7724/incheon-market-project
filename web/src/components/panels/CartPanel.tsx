@@ -96,6 +96,11 @@ export function CartPanel() {
 
   async function goRoute() {
     if (!picked.length) return;
+    // 구하기 어려운 재료 경고
+    const rareItems = picked.filter((k) => meta(k)?.rare);
+    if (rareItems.length > 0) {
+      setRouteError(`⚠️ 동네 가게에서 구하기 어려운 재료예요\n${rareItems.join(", ")}\n\n장바구니에서 빼고 경로를 검색하거나, 그대로 진행할 수 있어요.`);
+    }
     setRouteLoading(true);
     setRouteError(null);
     try {
@@ -110,9 +115,9 @@ export function CartPanel() {
           return !m || m.price === 0;
         });
         if (unavailable.length > 0) {
-          setRouteError(`주변에서 구하기 어려운 재료예요: ${unavailable.join(", ")}\n해당 재료를 빼거나 반경을 늘려보세요.`);
+          setRouteError(`🔍 주변 가게에서 구하기 어려운 재료가 있어요\n${unavailable.join(", ")}\n\n해당 재료를 장바구니에서 빼거나, 조건 탭에서 반경을 늘려보세요.`);
         } else {
-          setRouteError("반경 내 해당 재료를 취급하는 가게가 없어요.\n조건 탭에서 반경을 늘려보세요.");
+          setRouteError("🏪 반경 내 해당 재료를 취급하는 가게가 없어요.\n조건 탭에서 반경을 늘려보세요.");
         }
         return;
       }
@@ -121,7 +126,7 @@ export function CartPanel() {
       setTimeout(() => setPanel("stores"), 0);
     } catch (e) {
       console.error("경로 추천 실패:", e);
-      setRouteError("경로 계산 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.");
+      setRouteError("서버 연결 오류예요. Railway 백엔드가 실행 중인지 확인해주세요.");
     } finally { setRouteLoading(false); }
   }
 
@@ -229,7 +234,8 @@ export function CartPanel() {
             {picked.map((key) => {
               const m           = meta(key);
               const isInferring = inferring.has(key);
-              const isAi        = m?.price_type === "AI추론";
+              const isAi        = m?.price_type === "AI추론" || m?.price_type === "AI추론~";
+              const isRare      = m?.rare === true;
               const fav         = favItems.includes(key);
               const q           = qty(key);
               const lineTotal   = (m?.price ?? 0) * q;
@@ -239,6 +245,12 @@ export function CartPanel() {
                   className="flex items-center gap-2 rounded-2xl border border-[#1a2233]/8 bg-[#1a2233]/3 px-3 py-2.5">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 text-[13px] font-semibold text-[#1a2233] leading-tight">
+                      {isRare && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                          style={{ background: "rgba(230,57,70,0.12)", color: "#e63946" }}>
+                          ⚠️ 구하기 어려움
+                        </span>
+                      )}
                       {fav && <span className="text-yellow-400 text-[11px]">★</span>}
                       <span className="truncate">{m?.name ?? key}</span>
                       {isAi && (

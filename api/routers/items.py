@@ -211,6 +211,35 @@ def _infer_ingredient_full(item_key: str) -> dict | None:
     return None
 
 
+# 동네 마트/시장에서 구하기 어려운 특수 재료 키워드
+_RARE_KEYWORDS = [
+    "염소", "양고기", "오리고기", "사슴", "멧돼지", "토끼", "칠면조",
+    "전복", "해삼", "성게", "복어", "랍스터", "가재",
+    "트러플", "송로버섯", "마카다미아", "캐슈넛",
+    "바닐라빈", "사프란", "팔각", "산초",
+]
+
+def _is_rare_ingredient(item_key: str) -> bool:
+    """동네 가게에서 구하기 어려운 특수 재료 여부."""
+    return any(kw in item_key for kw in _RARE_KEYWORDS)
+
+
+def _fallback_price(item_key: str) -> int:
+    """AI 추론 실패 시 키워드 기반 기본가격 반환."""
+    k = item_key
+    if any(x in k for x in ["고기", "육", "살", "갈비", "삼겹", "등심", "안심"]):
+        return 15000  # 육류 기본 300g
+    if any(x in k for x in ["생선", "fish", "조기", "갈치", "고등어", "꽁치", "삼치"]):
+        return 8000
+    if any(x in k for x in ["새우", "게", "꽃게", "낙지", "오징어", "문어", "전복"]):
+        return 12000
+    if any(x in k for x in ["버섯", "표고", "느타리", "팽이"]):
+        return 2000
+    if any(x in k for x in ["소스", "양념", "장", "oil", "오일", "기름"]):
+        return 3000
+    return 5000  # 기본값
+
+
 @router.post("/infer")
 def infer_items(req: InferReq):
     """재료명 리스트 → 가격 정보 반환 (DB → EXTRA_ITEMS → OpenAI 순)."""
@@ -263,12 +292,18 @@ def infer_items(req: InferReq):
                 "category": info["category"], "price": price,
                 "unit": unit, "price_type": "AI추론",
                 "emoji": EMOJI_MAP.get(key, "🛒"),
+                "rare": _is_rare_ingredient(key),
             }
         else:
+            # AI 추론 실패 — 카테고리 추정 후 기본가 반환
+            fallback_price = _fallback_price(key)
+            unit, price = cooking_price(key, fallback_price, "원/kg", req.household)
             result[raw_name] = {
                 "item_key": key, "name": key,
-                "category": "기타", "price": 0,
-                "unit": "", "price_type": "미확인", "emoji": "❓",
+                "category": "기타", "price": price,
+                "unit": unit, "price_type": "AI추론~",
+                "emoji": EMOJI_MAP.get(key, "🛒"),
+                "rare": _is_rare_ingredient(key),
             }
 
     return result

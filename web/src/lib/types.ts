@@ -32,6 +32,7 @@ export interface DbItem {
   unit: string;
   price_type: string;
   emoji?: string;
+  rare?: boolean;
 }
 
 export interface Recipe {
