@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { useMap } from "react-map-gl/maplibre";
+import { useMap } from "react-map-gl/mapbox";
 import { useApp } from "@/lib/store";
 
 

@@ -1,40 +1,37 @@
 "use client";
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
-import Map, { Marker, Source, Layer, type MapMouseEvent, type MapRef } from "react-map-gl/maplibre";
-import "maplibre-gl/dist/maplibre-gl.css";
+import Map, {
+  Marker, Source, Layer, type MapMouseEvent, type MapRef,
+} from "react-map-gl/mapbox";
+import "mapbox-gl/dist/mapbox-gl.css";
 import { useApp } from "@/lib/store";
-import { getStores } from "@/lib/api";
+import { getStores, getMapboxRoute } from "@/lib/api";
 import type { Store } from "@/lib/types";
 import PriceLayer from "./PriceLayer";
-import type { GeoJSONSource } from "maplibre-gl";
+import type { MapLayerMouseEvent, GeoJSONSource } from "mapbox-gl";
 
 type Tooltip = { name: string; address: string; desc?: string; x: number; y: number };
 
-const STRAT_COLOR: Record<string, string> = {
-  최저예산: "#f5a623",
-  최소거리: "#63b7ff",
-  최소경유: "#4ade80",
-};
-const STOP_PALETTE = ["#f5a623", "#a855f7", "#ec4899", "#14b8a6", "#f97316", "#eab308", "#ef4444", "#06b6d4"];
-
 export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
   const {
-    lat, lng, radiusM, routePlans, routeChoice, mapboxRoute, mapStyle,
-    setMapboxRoute, setSelectedStore, setLoc,
+    lat, lng, radiusM, routePlans, routeChoice, setLoc,
+    mapStyle, mapboxRoute, setMapboxRoute,
   } = useApp();
-
-  const mapRef      = useRef<MapRef | null>(null);
-  const gpsReadyRef = useRef<{ lat: number; lng: number } | null>(null);
-  const [stores, setStores]     = useState<Store[]>([]);
-  const [tooltip, setTooltip]   = useState<Tooltip | null>(null);
+  const [stores, setStores]   = useState<Store[]>([]);
+  const [tooltip, setTooltip] = useState<Tooltip | null>(null);
   const [fetchKey, setFetchKey] = useState(0);
+  const mapRef = useRef<MapRef | null>(null);
+  const isDark = mapStyle.includes("dark");
 
-  const isDark = mapStyle.includes("dark") || mapStyle.includes("night");
-
+  // ── 상점 로드 (버그 수정: retry + 방어) ──────────────────────
   const loadStores = useCallback(async () => {
     try {
       const data = await getStores(lat, lng, radiusM);
-      setStores(Array.isArray(data) ? data.filter((s) => s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng)) : []);
+      setStores(
+        Array.isArray(data)
+          ? data.filter((s) => s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng))
+          : []
+      );
     } catch {
       setTimeout(async () => {
         try {
@@ -47,23 +44,30 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
 
   useEffect(() => { loadStores(); }, [loadStores, fetchKey]);
 
-  // GPS 초기화
+  // ── Mapbox 경로 계산 ─────────────────────────────────────────
   useEffect(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        setLoc(latitude, longitude);
-        gpsReadyRef.current = { lat: latitude, lng: longitude };
-        mapRef.current?.flyTo({ center: [longitude, latitude], zoom: 14, duration: 1000 });
-      },
-      () => {},
-      { enableHighAccuracy: true, timeout: 10000 },
-    );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!routeChoice || !routePlans[routeChoice]) { setMapboxRoute(null); return; }
+    const plan = routePlans[routeChoice];
+    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
+    if (!token || !plan.stops.length) return;
+    const waypoints: [number, number][] = plan.stops.map((s) => [s.lng, s.lat]);
+    getMapboxRoute([lng, lat], waypoints, token).then((r) => setMapboxRoute(r));
+  }, [routeChoice, routePlans, lat, lng, setMapboxRoute]);
 
-  // 경로 GeoJSON (mapboxRoute 또는 직선)
+  // ── GeoJSON ─────────────────────────────────────────────────
+  const geojson = useMemo(() => ({
+    type: "FeatureCollection" as const,
+    features: stores.map((s) => ({
+      type: "Feature" as const,
+      properties: {
+        id: s.id, name: s.name, type: s.type,
+        gu: s.gu, address: s.address ?? "", desc: s.desc ?? "",
+      },
+      geometry: { type: "Point" as const, coordinates: [s.lng, s.lat] },
+    })),
+  }), [stores]);
+
+  // ── 경로 geometry ─────────────────────────────────────────────
   const routeGeoData = useMemo(() => {
     if (mapboxRoute) return { type: "Feature" as const, geometry: mapboxRoute.geometry, properties: {} };
     const plan = routeChoice ? routePlans[routeChoice] : null;
@@ -78,16 +82,14 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
     };
   }, [mapboxRoute, routeChoice, routePlans, lat, lng]);
 
-  const geojson = useMemo(() => ({
-    type: "FeatureCollection" as const,
-    features: stores.map((s) => ({
-      type: "Feature" as const,
-      properties: { id: s.id, name: s.name, type: s.type, gu: s.gu, address: s.address ?? "", desc: s.desc ?? "" },
-      geometry: { type: "Point" as const, coordinates: [s.lng, s.lat] },
-    })),
-  }), [stores]);
+  const plan = routeChoice ? routePlans[routeChoice] : null;
 
-  const plan       = routeChoice ? routePlans[routeChoice] : null;
+  // 전략별 색상 (경로 라인 + 경유지 마커)
+  const STRAT_COLOR: Record<string, string> = {
+    최저예산: "#f5a623",
+    최소거리: "#63b7ff",
+    최소경유: "#4ade80",
+  };
   const routeColor = routeChoice ? (STRAT_COLOR[routeChoice] ?? "#ff5470") : "#ff5470";
 
   function handleMouseMove(e: MapMouseEvent) {
@@ -104,38 +106,25 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
       map.getCanvas().style.cursor = "";
     }
   }
-
   function handleMouseLeave() {
     setTooltip(null);
     if (mapRef.current) mapRef.current.getCanvas().style.cursor = "";
   }
-
-  async function handleClick(e: MapMouseEvent) {
+  function handleClick(e: MapMouseEvent) {
     const map = mapRef.current;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const feats = (e as any).features as any[] | undefined;
-
-    // 클러스터 클릭 → 줌인
+    const feats = (e as unknown as MapLayerMouseEvent).features;
     const cl = feats?.find((f) => f.layer?.id === "clusters");
     if (cl && map) {
       const src = map.getSource("stores") as GeoJSONSource;
-      try {
-        const zoom = await src.getClusterExpansionZoom(cl.properties?.cluster_id);
-        map.easeTo({ center: (cl.geometry as { coordinates: [number, number] }).coordinates, zoom });
-      } catch { /* ignore */ }
+      // @ts-expect-error mapbox typing
+      src.getClusterExpansionZoom(cl.properties?.cluster_id, (err: unknown, zoom: number) => {
+        if (err) return;
+        // @ts-expect-error geometry coords
+        map.easeTo({ center: cl.geometry.coordinates, zoom });
+      });
       return;
     }
-
-    // 개별 마커 클릭 → StoreInfoCard
-    const marker = feats?.find((f) => f.layer?.id === "unclustered");
-    if (marker) {
-      const storeId = marker.properties?.id;
-      const store = stores.find((s) => s.id === storeId);
-      if (store) setSelectedStore(store);
-      return;
-    }
-
-    // 빈 지도 클릭 → 아무것도 안 함 (위치 변경 X)
+    if (!feats?.length) setLoc(e.lngLat.lat, e.lngLat.lng);
   }
 
   return (
@@ -143,6 +132,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
       <Map
         id="main"
         ref={mapRef}
+        mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
         initialViewState={{ longitude: lng, latitude: lat, zoom: 13 }}
         mapStyle={mapStyle}
         style={{ position: "fixed", inset: 0, width: "100vw", height: "100vh" }}
@@ -150,52 +140,64 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
         onClick={handleClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        onLoad={() => {
-          setFetchKey((k) => k + 1);
-          if (gpsReadyRef.current) {
-            mapRef.current?.flyTo({ center: [gpsReadyRef.current.lng, gpsReadyRef.current.lat], zoom: 14 });
-          }
-        }}
-        attributionControl={false}
+        onLoad={() => setFetchKey((k) => k + 1)}
       >
-        {/* 내 위치 */}
+        {/* 내 위치 — 사람 아이콘 */}
         <Marker longitude={lng} latitude={lat} anchor="center">
           <div style={{
             width: 38, height: 38,
             display: "flex", alignItems: "center", justifyContent: "center",
-            background: "rgba(99,183,255,0.18)", borderRadius: "50%",
-            border: "2.5px solid #63b7ff", boxShadow: "0 0 0 7px rgba(99,183,255,0.12)",
+            background: "rgba(99,183,255,0.18)",
+            borderRadius: "50%",
+            border: "2.5px solid #63b7ff",
+            boxShadow: "0 0 0 7px rgba(99,183,255,0.12)",
             fontSize: 22,
           }}>🚶</div>
         </Marker>
 
         <PriceLayer visible={priceLayerOn} />
 
-        {/* 상점 클러스터 */}
-        <Source id="stores" type="geojson" data={geojson} cluster clusterMaxZoom={14} clusterRadius={50}>
+        {/* 상점 — 원형 클러스터만 사용 */}
+        <Source id="stores" type="geojson" data={geojson}
+          cluster clusterMaxZoom={14} clusterRadius={50}>
+          {/* 클러스터 원 */}
           <Layer id="clusters" type="circle" filter={["has", "point_count"]}
             paint={{
-              "circle-color": ["step", ["get", "point_count"], "#4ade80", 10, "#63b7ff", 30, "#f5a623"],
+              "circle-color": [
+                "step", ["get", "point_count"],
+                "#4ade80", 10,
+                "#63b7ff", 30,
+                "#f5a623",
+              ],
               "circle-opacity": 0.92,
               "circle-radius": ["step", ["get", "point_count"], 18, 10, 26, 30, 36],
               "circle-stroke-width": 3,
-              "circle-stroke-color": ["step", ["get", "point_count"],
-                "rgba(74,222,128,0.3)", 10, "rgba(99,183,255,0.3)", 30, "rgba(245,166,35,0.3)"],
+              "circle-stroke-color": [
+                "step", ["get", "point_count"],
+                "rgba(74,222,128,0.3)", 10,
+                "rgba(99,183,255,0.3)", 30,
+                "rgba(245,166,35,0.3)",
+              ],
             }}
           />
+          {/* 클러스터 숫자 */}
           <Layer id="cluster-count" type="symbol" filter={["has", "point_count"]}
             layout={{
               "text-field": ["get", "point_count_abbreviated"],
               "text-size": 13,
-              "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+              "text-font": ["DIN Offc Pro Bold", "Arial Unicode MS Bold"],
             }}
             paint={{ "text-color": "#04101f" }}
           />
+          {/* 개별 상점 */}
           <Layer id="unclustered" type="circle" filter={["!", ["has", "point_count"]]}
             paint={{
               "circle-color": ["match", ["get", "type"],
-                "전통시장", "#63b7ff", "골목상권", "#4ade80",
-                "동네식품점", "#f5a623", "대형유통", "#a882ff", "#888"],
+                "전통시장", "#63b7ff",
+                "골목상권", "#4ade80",
+                "동네식품점", "#f5a623",
+                "대형유통", "#a882ff",
+                "#888"],
               "circle-radius": 7,
               "circle-stroke-width": 2,
               "circle-stroke-color": "#fff",
@@ -211,7 +213,6 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
                 "line-color": routeColor, "line-width": 5, "line-opacity": 0.88,
                 "line-dasharray": mapboxRoute ? [1] : [2, 2],
               }}
-              layout={{ "line-cap": "round", "line-join": "round" }}
             />
           </Source>
         )}
@@ -221,10 +222,11 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
           <Marker key={`stop-${s.id}`} longitude={s.lng} latitude={s.lat} anchor="center">
             <div style={{
               width: 28, height: 28, borderRadius: "50%",
-              background: STOP_PALETTE[i % STOP_PALETTE.length], color: "#fff",
+              background: routeColor, color: "#fff",
               display: "flex", alignItems: "center", justifyContent: "center",
               fontWeight: 800, fontSize: 13,
-              border: "2.5px solid #fff", boxShadow: "0 2px 6px rgba(0,0,0,.45)",
+              border: "2.5px solid #fff",
+              boxShadow: "0 2px 6px rgba(0,0,0,.45)",
             }}>{i + 1}</div>
           </Marker>
         ))}
@@ -242,16 +244,17 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
           boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
         }}>
           <p style={{ fontWeight: 700, fontSize: 13, margin: 0 }}>{tooltip.name}</p>
-          {tooltip.desc    && <p style={{ fontSize: 10, marginTop: 2, opacity: 0.5 }}>{tooltip.desc}</p>}
+          {tooltip.desc && <p style={{ fontSize: 10, marginTop: 2, opacity: 0.5 }}>{tooltip.desc}</p>}
           {tooltip.address && <p style={{ fontSize: 11, marginTop: 4, opacity: 0.65, lineHeight: 1.4 }}>{tooltip.address}</p>}
         </div>
       )}
 
-      {/* 경로 정보 뱃지 */}
+      {/* Mapbox 경로 뱃지 */}
       {mapboxRoute && plan && (
         <div style={{
           position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)",
-          zIndex: 600, background: "rgba(10,18,35,0.9)",
+          zIndex: 600,
+          background: "rgba(10,18,35,0.9)",
           border: "1px solid rgba(255,255,255,0.1)",
           borderRadius: 20, padding: "6px 18px",
           display: "flex", gap: 16,

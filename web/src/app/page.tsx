@@ -1,6 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
-import { MapProvider } from "react-map-gl/maplibre";
+import { MapProvider } from "react-map-gl/mapbox";
 import { useApp } from "@/lib/store";
 import { MapTools } from "@/components/map/MapTools";
 import { StoreInfoCard } from "@/components/map/StoreInfoCard";

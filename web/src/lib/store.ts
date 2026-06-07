@@ -61,11 +61,11 @@ export const useApp = create<AppState>((set) => ({
   setLoc: (lat, lng) => set({ lat, lng }),
   setRadius: (radiusM) => set({ radiusM }),
 
-  mapStyle: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+  mapStyle: "mapbox://styles/mapbox/dark-v11",
   toggleMapStyle: () => set((s) => ({
-    mapStyle: s.mapStyle.includes("dark-matter")
-      ? "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
-      : "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+    mapStyle: s.mapStyle.includes("dark")
+      ? "mapbox://styles/mapbox/light-v11"
+      : "mapbox://styles/mapbox/dark-v11",
   })),
 
   selectedStore: null,
