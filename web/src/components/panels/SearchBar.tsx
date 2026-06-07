@@ -80,7 +80,7 @@ export function SearchBar() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && run()}
-          placeholder="음식·재료·상점 검색"
+          placeholder="음식·재료 검색"
           className="flex-1 min-w-0 bg-transparent text-[13px] text-[#1a2233]
                      placeholder:text-[#8a96b0] outline-none truncate"
         />

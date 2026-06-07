@@ -29,14 +29,14 @@ def _wholesale_to_retail(price: float, category: str) -> int:
     return round(price * factor / 10) * 10   # 10원 단위 반올림
 
 
-_INFERRED_CACHE: dict[str, int] = {}   # item_key → 추론 가격 (런타임 캐시)
+_INFERRED_CACHE: dict[str, dict] = {}   # item_key → {price, unit, category}
 
 def _infer_price_with_ai(item_key: str, category: str, unit: str) -> int | None:
     """OpenAI로 한국 소매가 추론. 실패 시 None."""
     if not _OPENAI_KEY:
         return None
     if item_key in _INFERRED_CACHE:
-        return _INFERRED_CACHE[item_key]
+        return _INFERRED_CACHE[item_key]["price"]
     try:
         import openai
         client = openai.OpenAI(api_key=_OPENAI_KEY)
@@ -62,7 +62,7 @@ def _infer_price_with_ai(item_key: str, category: str, unit: str) -> int | None:
         raw = resp.choices[0].message.content.strip().replace(",", "").replace("원", "")
         price = int(float(raw))
         if 50 <= price <= 500000:
-            _INFERRED_CACHE[item_key] = price
+            _INFERRED_CACHE[item_key] = {"price": price, "unit": unit, "category": category}
             return price
     except Exception:
         pass
@@ -162,7 +162,8 @@ def _infer_ingredient_full(item_key: str) -> dict | None:
     if not _OPENAI_KEY:
         return None
     if item_key in _INFERRED_CACHE:
-        return {"price": _INFERRED_CACHE[item_key], "unit": "원/단위", "category": "기타", "price_type": "AI추론"}
+        cached = _INFERRED_CACHE[item_key]
+        return {"price": cached["price"], "unit": cached.get("unit", ""), "category": cached.get("category", "기타"), "price_type": "AI추론"}
     try:
         import openai
         client = openai.OpenAI(api_key=_OPENAI_KEY)
@@ -188,11 +189,13 @@ def _infer_ingredient_full(item_key: str) -> dict | None:
         obj = json.loads(resp.choices[0].message.content.strip())
         price = int(float(str(obj.get("price", 0)).replace(",", "")))
         if 50 <= price <= 500000:
-            _INFERRED_CACHE[item_key] = price
+            unit_val = str(obj.get("unit", ""))
+            cat_val  = str(obj.get("category", "기타"))
+            _INFERRED_CACHE[item_key] = {"price": price, "unit": unit_val, "category": cat_val}
             return {
                 "price": price,
-                "unit": str(obj.get("unit", "원/단위")),
-                "category": str(obj.get("category", "기타")),
+                "unit": unit_val,
+                "category": cat_val,
                 "price_type": "AI추론",
             }
     except Exception:
