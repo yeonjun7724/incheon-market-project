@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useMap } from "react-map-gl/mapbox";
 import { useApp } from "@/lib/store";
 
-
 const INCHEON_BOUNDS: [[number, number], [number, number]] = [
   [126.37, 37.38],
   [126.78, 37.58],
@@ -68,13 +67,14 @@ export function MapTools({ onTogglePriceLayer: _onTogglePriceLayer, priceLayerOn
 
   const btnBase = `
     relative flex h-10 items-center gap-2 rounded-2xl pl-2.5 pr-3
-    text-white shadow-lg transition active:scale-90 hover:bg-white/10
+    shadow-md transition active:scale-90
   `;
   const iconOnly = !labelsVisible;
   const btnStyle = {
-    background: "rgba(8,15,30,0.85)",
+    background: "rgba(255,255,255,0.93)",
     backdropFilter: "blur(12px)",
-    border: "1px solid rgba(255,255,255,0.09)",
+    border: "1px solid rgba(26,34,51,0.12)",
+    color: "#1a2233",
   };
 
   return (
@@ -92,11 +92,11 @@ export function MapTools({ onTogglePriceLayer: _onTogglePriceLayer, priceLayerOn
         onClick={() => setLabelsVisible((v) => !v)}
         title={labelsVisible ? "설명 숨기기" : "설명 보기"}
       >
-        <span className="text-[18px] leading-none w-5 text-center">
+        <span className="text-[18px] leading-none w-5 text-center text-[#0077b6]">
           {labelsVisible ? "◀" : "▶"}
         </span>
         {labelsVisible && (
-          <span className="text-[12px] font-semibold text-white/70 whitespace-nowrap">접기</span>
+          <span className="text-[12px] font-semibold text-[#4a5a78] whitespace-nowrap">접기</span>
         )}
       </button>
 
@@ -111,7 +111,7 @@ export function MapTools({ onTogglePriceLayer: _onTogglePriceLayer, priceLayerOn
         >
           <span className="text-[18px] leading-none w-5 text-center">{icon}</span>
           {!iconOnly && (
-            <span className="text-[12px] font-semibold text-white/70 whitespace-nowrap">{label}</span>
+            <span className="text-[12px] font-semibold text-[#4a5a78] whitespace-nowrap">{label}</span>
           )}
         </button>
       ))}
@@ -130,7 +130,7 @@ export function MapTools({ onTogglePriceLayer: _onTogglePriceLayer, priceLayerOn
             {syncing ? "⏳" : "🔄"}
           </span>
           {!iconOnly && (
-            <span className="text-[12px] font-semibold text-white/70 whitespace-nowrap">
+            <span className="text-[12px] font-semibold text-[#4a5a78] whitespace-nowrap">
               {syncing ? "갱신 중…" : "가격 갱신"}
             </span>
           )}
@@ -139,18 +139,22 @@ export function MapTools({ onTogglePriceLayer: _onTogglePriceLayer, priceLayerOn
         {syncMsg && (
           <div className={`absolute right-full mr-2 top-1/2 -translate-y-1/2 whitespace-nowrap
                            rounded-xl px-3 py-1.5 text-xs text-white shadow-xl
-                           ${syncOk ? "bg-green-900/90" : "bg-red-900/90"}`}>
+                           ${syncOk ? "bg-[#0077b6]" : "bg-[#e63946]"}`}>
             {syncMsg}
           </div>
         )}
       </div>
 
-      {/* 호버 툴팁 (아이콘만 보일 때) */}
+      {/* 호버 툴팁 */}
       {iconOnly && tooltip && (
         <div
-          className="fixed right-14 whitespace-nowrap rounded-xl bg-[rgba(8,15,30,0.92)] border border-white/10
-                     px-3 py-1.5 text-[12px] text-white shadow-xl pointer-events-none"
-          style={{ top: "calc(max(12px, env(safe-area-inset-top)) + 52px + 4px)" }}
+          className="fixed right-14 whitespace-nowrap rounded-xl px-3 py-1.5 text-[12px] shadow-lg pointer-events-none"
+          style={{
+            top: "calc(max(12px, env(safe-area-inset-top)) + 52px + 4px)",
+            background: "rgba(255,255,255,0.96)",
+            border: "1px solid rgba(26,34,51,0.12)",
+            color: "#1a2233",
+          }}
         >
           {tooltip}
         </div>

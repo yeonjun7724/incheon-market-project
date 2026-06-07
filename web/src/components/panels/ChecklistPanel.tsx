@@ -17,7 +17,7 @@ export function ChecklistPanel() {
         <div className="mt-3 flex flex-wrap justify-center gap-2">
           {Object.keys(routePlans).map((k) => (
             <button key={k} onClick={() => setRouteChoice(k)}
-              className="rounded-full border border-white/10 px-3 py-1 text-xs text-ink2 hover:text-accent">{k}</button>
+              className="rounded-full border border-[#1a2233]/10 px-3 py-1 text-xs text-ink2 hover:text-accent">{k}</button>
           ))}
         </div>
       </div>
@@ -40,7 +40,7 @@ export function ChecklistPanel() {
   return (
     <div className="space-y-3 text-ink1">
       {/* 진행률 */}
-      <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5">
+      <div className="flex items-center justify-between rounded-lg border border-[#1a2233]/10 bg-white/[0.03] px-3 py-2.5">
         <div>
           <div className="text-[10px] uppercase tracking-wide text-ink3">담은 금액 / 예상 합계</div>
           <div className="font-mono text-lg">
@@ -61,11 +61,11 @@ export function ChecklistPanel() {
         const isFav = favStores.includes(store.id);
         const expanded = open[store.id] ?? i === 0;
         return (
-          <div key={store.id} className="rounded-lg border border-white/10 bg-white/[0.03]">
+          <div key={store.id} className="rounded-lg border border-[#1a2233]/10 bg-white/[0.03]">
             {/* 헤더 (∧∨ 토글) */}
             <button onClick={() => setOpen((o) => ({ ...o, [store.id]: !expanded }))}
               className="flex w-full items-center gap-2 px-3 py-3 text-left">
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent text-xs font-extrabold text-[#04101f]">{i + 1}</span>
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent text-xs font-extrabold text-[#ffffff]">{i + 1}</span>
               <span className="flex-1 text-[14px] font-extrabold">{store.name}</span>
               <span className="text-[11px] text-ink3">{storeTotal.toLocaleString()}원</span>
               <span className="text-ink2">{expanded ? "∧" : "∨"}</span>
@@ -82,7 +82,7 @@ export function ChecklistPanel() {
                   const key = `${store.id}::${it.name}`;
                   const done = !!bought[key];
                   return (
-                    <div key={key} className="flex items-center gap-2 border-t border-white/5 py-2">
+                    <div key={key} className="flex items-center gap-2 border-t border-[#1a2233]/5 py-2">
                       <span>{it.emoji}</span>
                       <span className={`flex-1 text-[13px] ${done ? "text-ink3 line-through" : ""}`}>
                         {it.name} <span className="text-ink3">{it.unit}</span>

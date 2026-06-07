@@ -98,7 +98,7 @@ export function CartPanel() {
 
       {/* AI 요리 검색 */}
       <section>
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-white/35">
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[#8a96b0]">
           🤖 AI 재료 추천
         </p>
         <div className="flex gap-2">
@@ -107,20 +107,20 @@ export function CartPanel() {
             onChange={(e) => setDishQ(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && searchRecipe()}
             placeholder="찜닭, 김치찌개, 잡채…"
-            className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5
-                       text-[14px] text-white placeholder:text-white/25 outline-none
-                       focus:border-[#63b7ff]/40"
+            className="flex-1 rounded-2xl border border-[#1a2233]/10 bg-[#1a2233]/4 px-4 py-2.5
+                       text-[14px] text-[#1a2233] placeholder:text-[#8a96b0] outline-none
+                       focus:border-[#0077b6]/40"
           />
           <button onClick={searchRecipe} disabled={loading}
-            className="rounded-2xl bg-[#63b7ff]/20 border border-[#63b7ff]/30 px-5
-                       text-[13px] font-bold text-[#63b7ff] disabled:opacity-40 active:scale-95 transition">
+            className="rounded-2xl bg-[#0077b6]/20 border border-[#0077b6]/30 px-5
+                       text-[13px] font-bold text-[#0077b6] disabled:opacity-40 active:scale-95 transition">
             {loading ? "…" : "찾기"}
           </button>
         </div>
       </section>
 
       {noRecipe && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-[13px] text-white/50">
+        <div className="rounded-2xl border border-[#1a2233]/10 bg-[#1a2233]/4 px-4 py-3 text-[13px] text-[#4a5a78]">
           아직 그 레시피는 없어요. 다른 요리로 검색하거나 아래서 직접 담아보세요 🙂
         </div>
       )}
@@ -128,9 +128,9 @@ export function CartPanel() {
       {/* 레시피 재료 칩 */}
       {recipeDish && (
         <section className="space-y-2">
-          <div className="rounded-2xl rounded-bl-sm border border-[#63b7ff]/20 bg-[#63b7ff]/8
-                          px-4 py-3 text-[13px] text-white">
-            <b className="text-[#63b7ff]">{recipeDish}</b> 재료예요. 담을 재료를 선택하세요 👇
+          <div className="rounded-2xl rounded-bl-sm border border-[#0077b6]/20 bg-[#0077b6]/8
+                          px-4 py-3 text-[13px] text-[#1a2233]">
+            <b className="text-[#0077b6]">{recipeDish}</b> 재료예요. 담을 재료를 선택하세요 👇
           </div>
           <div className="flex flex-wrap gap-2">
             {recipeIngs.map((ing) => {
@@ -140,11 +140,11 @@ export function CartPanel() {
               return (
                 <button key={ing} onClick={() => togglePick(ing)}
                   className={`rounded-full border px-3 py-1.5 text-[13px] transition active:scale-95
-                    ${on ? "border-[#4ade80]/40 bg-[#4ade80]/15 text-[#4ade80]"
-                         : "border-white/10 bg-white/5 text-white/60"}`}>
+                    ${on ? "border-[#e63946]/40 bg-[#e63946]/15 text-[#e63946]"
+                         : "border-[#1a2233]/10 bg-[#1a2233]/4 text-[#4a5a78]"}`}>
                   {on ? "✓ " : "+ "}{ing}
                   {m && m.price > 0 && (
-                    <span className={`ml-1 text-[11px] opacity-60 ${isAi ? "text-[#f5a623]" : ""}`}>
+                    <span className={`ml-1 text-[11px] opacity-60 ${isAi ? "text-[#f77f00]" : ""}`}>
                       {m.price.toLocaleString()}원{isAi ? "~" : ""}
                     </span>
                   )}
@@ -157,31 +157,31 @@ export function CartPanel() {
 
       {/* 직접 담기 */}
       <section>
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-white/35">➕ 직접 담기</p>
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[#8a96b0]">➕ 직접 담기</p>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="품목명 검색 (대파, 배추, 고등어…)"
-          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5
-                     text-[14px] text-white placeholder:text-white/25 outline-none
-                     focus:border-[#63b7ff]/40 mb-2"
+          className="w-full rounded-2xl border border-[#1a2233]/10 bg-[#1a2233]/4 px-4 py-2.5
+                     text-[14px] text-[#1a2233] placeholder:text-[#8a96b0] outline-none
+                     focus:border-[#0077b6]/40 mb-2"
         />
         {search.trim() && (
-          <div className="rounded-2xl border border-white/8 bg-white/3 overflow-hidden max-h-44 overflow-y-auto [scrollbar-width:thin]">
+          <div className="rounded-2xl border border-[#1a2233]/8 bg-[#1a2233]/3 overflow-hidden max-h-44 overflow-y-auto [scrollbar-width:thin]">
             {addable.length === 0 ? (
-              <p className="px-4 py-3 text-[13px] text-white/35">검색 결과 없음</p>
+              <p className="px-4 py-3 text-[13px] text-[#8a96b0]">검색 결과 없음</p>
             ) : addable.slice(0, 30).map((item) => (
               <button key={item.item_key}
                 onClick={() => { togglePick(item.item_key); setSearch(""); }}
                 className="flex w-full items-center justify-between px-4 py-2.5 text-left
-                           hover:bg-white/5 border-b border-white/5 last:border-0 transition">
+                           hover:bg-[#1a2233]/4 border-b border-[#1a2233]/5 last:border-0 transition">
                 <div>
-                  <span className="text-[13px] font-medium text-white">{item.name}</span>
-                  <span className="ml-2 text-[11px] text-white/30">{item.category}</span>
+                  <span className="text-[13px] font-medium text-[#1a2233]">{item.name}</span>
+                  <span className="ml-2 text-[11px] text-[#8a96b0]">{item.category}</span>
                 </div>
-                <span className="text-[12px] font-bold text-[#4ade80] font-mono shrink-0 ml-2">
+                <span className="text-[12px] font-bold text-[#e63946] font-mono shrink-0 ml-2">
                   {item.price.toLocaleString()}원
-                  <span className="text-[10px] text-white/30 ml-1">/{item.unit}</span>
+                  <span className="text-[10px] text-[#8a96b0] ml-1">/{item.unit}</span>
                 </span>
               </button>
             ))}
@@ -192,7 +192,7 @@ export function CartPanel() {
       {/* 담은 재료 */}
       {picked.length > 0 && (
         <section>
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-white/35">🧺 담은 재료</p>
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[#8a96b0]">🧺 담은 재료</p>
           <div className="space-y-2">
             {picked.map((key) => {
               const m           = meta(key);
@@ -204,9 +204,9 @@ export function CartPanel() {
 
               return (
                 <div key={key}
-                  className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/3 px-3 py-2.5">
+                  className="flex items-center gap-2 rounded-2xl border border-[#1a2233]/8 bg-[#1a2233]/3 px-3 py-2.5">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 text-[13px] font-semibold text-white leading-tight">
+                    <div className="flex items-center gap-1.5 text-[13px] font-semibold text-[#1a2233] leading-tight">
                       {fav && <span className="text-yellow-400 text-[11px]">★</span>}
                       <span className="truncate">{m?.name ?? key}</span>
                       {isAi && (
@@ -214,7 +214,7 @@ export function CartPanel() {
                           style={{ background: "rgba(245,166,35,0.2)", color: "#f5a623" }}>AI</span>
                       )}
                     </div>
-                    <div className="text-[10px] text-white/30 mt-0.5">
+                    <div className="text-[10px] text-[#8a96b0] mt-0.5">
                       {isInferring ? "가격 추론 중…"
                         : m ? `${m.unit}${m.unit ? " · " : ""}${m.category}`
                         : "DB 미등록"}
@@ -222,48 +222,48 @@ export function CartPanel() {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => changeQty(key, -1)}
-                      className="flex h-6 w-6 items-center justify-center rounded-lg border border-white/10
-                                 text-white/50 hover:bg-white/8 text-[14px] leading-none">−</button>
-                    <span className="w-5 text-center text-[13px] font-mono text-white">{q}</span>
+                      className="flex h-6 w-6 items-center justify-center rounded-lg border border-[#1a2233]/10
+                                 text-[#4a5a78] hover:bg-[#1a2233]/6 text-[14px] leading-none">−</button>
+                    <span className="w-5 text-center text-[13px] font-mono text-[#1a2233]">{q}</span>
                     <button onClick={() => changeQty(key, +1)}
-                      className="flex h-6 w-6 items-center justify-center rounded-lg border border-white/10
-                                 text-white/50 hover:bg-white/8 text-[14px] leading-none">+</button>
+                      className="flex h-6 w-6 items-center justify-center rounded-lg border border-[#1a2233]/10
+                                 text-[#4a5a78] hover:bg-[#1a2233]/6 text-[14px] leading-none">+</button>
                   </div>
                   <div className="text-right shrink-0 min-w-[68px]">
                     {isInferring ? (
-                      <div className="text-[11px] text-[#63b7ff] animate-pulse">추론 중…</div>
+                      <div className="text-[11px] text-[#0077b6] animate-pulse">추론 중…</div>
                     ) : m && m.price > 0 ? (
-                      <div className={`text-[13px] font-bold font-mono ${isAi ? "text-[#f5a623]" : "text-[#4ade80]"}`}>
+                      <div className={`text-[13px] font-bold font-mono ${isAi ? "text-[#f77f00]" : "text-[#e63946]"}`}>
                         {lineTotal.toLocaleString()}원{isAi ? "~" : ""}
                       </div>
                     ) : (
-                      <div className="text-[11px] text-white/25">
+                      <div className="text-[11px] text-[#8a96b0]">
                         {m?.price === 0 ? "추론 실패" : "가격없음"}
                       </div>
                     )}
                   </div>
                   <button onClick={() => toggleFavItem(key)}
-                    className="text-[15px] text-white/25 hover:text-yellow-400 shrink-0">{fav ? "★" : "☆"}</button>
+                    className="text-[15px] text-[#8a96b0] hover:text-yellow-400 shrink-0">{fav ? "★" : "☆"}</button>
                   <button onClick={() => togglePick(key)}
-                    className="text-white/25 hover:text-red-400 text-[13px] shrink-0">✕</button>
+                    className="text-[#8a96b0] hover:text-red-400 text-[13px] shrink-0">✕</button>
                 </div>
               );
             })}
 
-            <div className="rounded-2xl border border-white/8 bg-white/3 px-4 py-3 flex items-center justify-between">
+            <div className="rounded-2xl border border-[#1a2233]/8 bg-[#1a2233]/3 px-4 py-3 flex items-center justify-between">
               <div>
-                <div className="text-[10px] uppercase tracking-wide text-white/30">예상 합계</div>
-                <div className="text-[10px] text-white/20 mt-0.5">소매가 기준 (AI추론 포함)</div>
+                <div className="text-[10px] uppercase tracking-wide text-[#8a96b0]">예상 합계</div>
+                <div className="text-[10px] text-[#1a2233]/20 mt-0.5">소매가 기준 (AI추론 포함)</div>
               </div>
-              <div className="text-[20px] font-black font-mono text-[#4ade80]">
+              <div className="text-[20px] font-black font-mono text-[#e63946]">
                 {totalPrice.toLocaleString()}원
               </div>
             </div>
 
             <button onClick={goRoute} disabled={routeLoading}
-              className="w-full rounded-2xl bg-[#63b7ff]/20 border border-[#63b7ff]/30
-                         py-4 text-[15px] font-bold text-[#63b7ff]
-                         hover:bg-[#63b7ff]/30 disabled:opacity-40 transition active:scale-[0.98]">
+              className="w-full rounded-2xl bg-[#0077b6]/20 border border-[#0077b6]/30
+                         py-4 text-[15px] font-bold text-[#0077b6]
+                         hover:bg-[#0077b6]/30 disabled:opacity-40 transition active:scale-[0.98]">
               {routeLoading ? "⏳ 경로 계산 중…" : "🧭 추천 경로 보기"}
             </button>
           </div>

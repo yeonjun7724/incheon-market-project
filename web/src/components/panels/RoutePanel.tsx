@@ -5,12 +5,12 @@ import { recommendRoutes, getMapboxRoute } from "@/lib/api";
 import type { RouteWithMapbox } from "@/lib/types";
 
 const STRAT: Record<string, { icon: string; label: string; desc: string; color: string }> = {
-  최저예산: { icon: "💰", label: "최저예산", desc: "전통시장 우선 • 가장 저렴하게", color: "#f5a623" },
-  최소거리: { icon: "📍", label: "최소거리", desc: "가까운 가게 순 • 동선 최소화",  color: "#63b7ff" },
-  최소경유: { icon: "🧭", label: "최소경유", desc: "한 가게에서 최대한 • 경유지 최소", color: "#4ade80" },
+  최저예산: { icon: "💰", label: "최저예산", desc: "전통시장 우선 • 가장 저렴하게", color: "#f77f00" },
+  최소거리: { icon: "📍", label: "최소거리", desc: "가까운 가게 순 • 동선 최소화",  color: "#0077b6" },
+  최소경유: { icon: "🧭", label: "최소경유", desc: "한 가게에서 최대한 • 경유지 최소", color: "#2d9e5f" },
 };
 
-const STOP_PALETTE = ["#f5a623", "#a855f7", "#ec4899", "#14b8a6", "#f97316", "#eab308", "#ef4444", "#06b6d4"];
+const STOP_PALETTE = ["#f77f00", "#a855f7", "#ec4899", "#14b8a6", "#f97316", "#eab308", "#ef4444", "#06b6d4"];
 
 export function RoutePanel() {
   const {
@@ -61,7 +61,7 @@ export function RoutePanel() {
   const strategies = Object.keys(routePlans);
 
   if (!picked.length) return (
-    <p className="py-6 text-center text-[13px] text-white/40">
+    <p className="py-6 text-center text-[13px] text-[#8a96b0]">
       장바구니에 재료를 먼저 담아주세요.
     </p>
   );
@@ -69,12 +69,12 @@ export function RoutePanel() {
   if (loadingPlan) return (
     <div className="flex flex-col items-center gap-3 py-8">
       <div className="text-4xl animate-spin">⚙️</div>
-      <p className="text-[13px] text-[#63b7ff] animate-pulse">경로 계산 중…</p>
+      <p className="text-[13px] text-[#0077b6] animate-pulse">경로 계산 중…</p>
     </div>
   );
 
   if (!strategies.length) return (
-    <p className="py-6 text-center text-[13px] text-white/40">
+    <p className="py-6 text-center text-[13px] text-[#8a96b0]">
       반경 내 해당 재료를 취급하는 가게가 없어요.<br/>
       반경을 늘려보세요.
     </p>
@@ -83,7 +83,7 @@ export function RoutePanel() {
   return (
     <div className="space-y-3">
       {loadingMb && (
-        <p className="text-[11px] text-[#63b7ff] animate-pulse text-center">
+        <p className="text-[11px] text-[#0077b6] animate-pulse text-center">
           실제 거리 계산 중…
         </p>
       )}
@@ -97,7 +97,7 @@ export function RoutePanel() {
         const shopMin  = p.n_stops * 10;
         const totalMin = walkMin + shopMin;
         const distKm   = mb ? (mb.distance_m / 1000).toFixed(1) : (p.distance_m / 1000).toFixed(1);
-        const s   = STRAT[k] ?? { icon: "🗺️", label: k, desc: "", color: "#63b7ff" };
+        const s   = STRAT[k] ?? { icon: "🗺️", label: k, desc: "", color: "#0077b6" };
         const col = s.color;  // 전략별 고유 색상
 
         return (
@@ -105,7 +105,7 @@ export function RoutePanel() {
             className="w-full rounded-2xl border p-4 text-left transition active:scale-[0.98]"
             style={sel
               ? { borderColor: `${col}50`, background: `${col}10` }
-              : { borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }
+              : { borderColor: "rgba(26,34,51,0.08)", background: "rgba(26,34,51,0.03)" }
             }>
 
             <div className="flex items-center justify-between mb-2">
@@ -116,8 +116,8 @@ export function RoutePanel() {
                   style={{ filter: `drop-shadow(0 0 4px ${col}80)` }}
                 >{s.icon}</span>
                 <div>
-                  <div className="text-[14px] font-extrabold text-white">{s.label}</div>
-                  <div className="text-[10px] text-white/40">{s.desc}</div>
+                  <div className="text-[14px] font-extrabold text-[#1a2233]">{s.label}</div>
+                  <div className="text-[10px] text-[#8a96b0]">{s.desc}</div>
                 </div>
               </div>
               {sel && (
@@ -136,12 +136,12 @@ export function RoutePanel() {
                 { v: `${walkMin}분`, l: mb ? "실측" : "추정" },
                 { v: `${totalMin}분`, l: `총(구입포함)` },
               ].map(({ v, l }) => (
-                <div key={l} className="rounded-xl bg-white/5 px-1 py-2 text-center min-w-0">
+                <div key={l} className="rounded-xl bg-[#1a2233]/4 px-1 py-2 text-center min-w-0">
                   <div
                     className="text-[11px] font-bold font-mono leading-tight break-all"
                     style={{ color: col }}
                   >{v}</div>
-                  <div className="text-[8px] text-white/35 leading-tight mt-0.5 truncate">{l}</div>
+                  <div className="text-[8px] text-[#8a96b0] leading-tight mt-0.5 truncate">{l}</div>
                 </div>
               ))}
             </div>
@@ -149,15 +149,15 @@ export function RoutePanel() {
             {/* 선택 시 경유지 */}
             {sel && (
               <div className="mt-3 space-y-1.5">
-                <div className="text-[10px] font-bold uppercase tracking-wide text-white/30">경유 상점</div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-[#8a96b0]">경유 상점</div>
                 {p.stops.map((s, i) => (
                   <div key={s.id} className="flex items-center gap-2">
                     <div
-                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-white"
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-[#1a2233]"
                       style={{ background: STOP_PALETTE[i % STOP_PALETTE.length] }}
                     >{i+1}</div>
-                    <span className="text-[12px] text-white/80 truncate">{s.name}</span>
-                    <span className="text-[10px] text-white/30 shrink-0">{s.type}</span>
+                    <span className="text-[12px] text-[#1a2233]/80 truncate">{s.name}</span>
+                    <span className="text-[10px] text-[#8a96b0] shrink-0">{s.type}</span>
                   </div>
                 ))}
               </div>
@@ -169,9 +169,9 @@ export function RoutePanel() {
       <button
         disabled={!routeChoice}
         onClick={() => setPanel("checklist")}
-        className="w-full rounded-2xl bg-[#4ade80]/15 border border-[#4ade80]/30
-                   py-3.5 text-[14px] font-bold text-[#4ade80]
-                   hover:bg-[#4ade80]/25 disabled:opacity-30 transition active:scale-[0.98]"
+        className="w-full rounded-2xl bg-[#2d9e5f]/15 border border-[#2d9e5f]/30
+                   py-3.5 text-[14px] font-bold text-[#2d9e5f]
+                   hover:bg-[#2d9e5f]/25 disabled:opacity-30 transition active:scale-[0.98]"
       >
         🚶 이 경로로 장보기 시작
       </button>

@@ -151,10 +151,10 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
           <div style={{
             width: 38, height: 38,
             display: "flex", alignItems: "center", justifyContent: "center",
-            background: "rgba(99,183,255,0.18)",
+            background: "rgba(0,119,182,0.15)",
             borderRadius: "50%",
-            border: "2.5px solid #63b7ff",
-            boxShadow: "0 0 0 7px rgba(99,183,255,0.12)",
+            border: "2.5px solid #0077b6",
+            boxShadow: "0 0 0 7px rgba(0,119,182,0.12)",
             fontSize: 22,
           }}>🚶</div>
         </Marker>
@@ -169,41 +169,36 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
             paint={{
               "circle-color": [
                 "step", ["get", "point_count"],
-                "#4ade80", 10,
-                "#63b7ff", 30,
-                "#f5a623",
+                "#e63946", 10,
+                "#c1121f", 30,
+                "#780000",
               ],
-              "circle-opacity": 0.92,
-              "circle-radius": ["step", ["get", "point_count"], 18, 10, 26, 30, 36],
+              "circle-opacity": 0.93,
+              "circle-radius": ["step", ["get", "point_count"], 20, 10, 28, 30, 38],
               "circle-stroke-width": 3,
-              "circle-stroke-color": [
-                "step", ["get", "point_count"],
-                "rgba(74,222,128,0.3)", 10,
-                "rgba(99,183,255,0.3)", 30,
-                "rgba(245,166,35,0.3)",
-              ],
+              "circle-stroke-color": "#fff",
             }}
           />
           {/* 클러스터 숫자 */}
           <Layer id="cluster-count" type="symbol" filter={["has", "point_count"]}
             layout={{
               "text-field": ["get", "point_count_abbreviated"],
-              "text-size": 13,
+              "text-size": 14,
               "text-font": ["DIN Offc Pro Bold", "Arial Unicode MS Bold"],
             }}
-            paint={{ "text-color": "#04101f" }}
+            paint={{ "text-color": "#ffffff" }}
           />
           {/* 개별 상점 */}
           <Layer id="unclustered" type="circle" filter={["!", ["has", "point_count"]]}
             paint={{
               "circle-color": ["match", ["get", "type"],
-                "전통시장", "#63b7ff",
-                "골목상권", "#4ade80",
-                "동네식품점", "#f5a623",
-                "대형유통", "#a882ff",
-                "#888"],
-              "circle-radius": 7,
-              "circle-stroke-width": 2,
+                "전통시장", "#0077b6",
+                "골목상권", "#f77f00",
+                "동네식품점", "#7b2d8b",
+                "대형유통", "#e63946",
+                "#555"],
+              "circle-radius": 8,
+              "circle-stroke-width": 2.5,
               "circle-stroke-color": "#fff",
             }}
           />
@@ -242,9 +237,9 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
           position: "fixed", left: tooltip.x + 14, top: tooltip.y - 10,
           pointerEvents: "none", zIndex: 999, padding: "8px 12px",
           borderRadius: 8, maxWidth: 220,
-          border: isDark ? "1px solid rgba(255,255,255,0.13)" : "1px solid #ddd",
-          background: isDark ? "#111827" : "#fff",
-          color: isDark ? "#fff" : "#000",
+          border: "1px solid rgba(26,34,51,0.12)",
+          background: "#fff",
+          color: "#1a2233",
           boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
         }}>
           <p style={{ fontWeight: 700, fontSize: 13, margin: 0 }}>{tooltip.name}</p>
@@ -258,11 +253,11 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
         <div style={{
           position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)",
           zIndex: 600,
-          background: "rgba(10,18,35,0.9)",
-          border: "1px solid rgba(255,255,255,0.1)",
+          background: "rgba(255,255,255,0.96)",
+          border: "1px solid rgba(26,34,51,0.12)",
           borderRadius: 20, padding: "6px 18px",
           display: "flex", gap: 16,
-          backdropFilter: "blur(12px)", color: "#fff", fontSize: 12,
+          backdropFilter: "blur(12px)", color: "#1a2233", fontSize: 12,
         }}>
           <span>🗺️ <b>{(mapboxRoute.distance_m / 1000).toFixed(1)}km</b></span>
           <span>🚶 <b>{Math.round(mapboxRoute.duration_s / 60)}분</b></span>

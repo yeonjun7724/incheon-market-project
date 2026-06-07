@@ -44,12 +44,12 @@ export function FavoritesPanel() {
         <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink3">📌 자주 가는 가게</p>
         <div className="mb-2 flex gap-2">
           <select value={addSel} onChange={(e) => setAddSel(e.target.value)}
-            className="flex-1 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-ink1 outline-none">
+            className="flex-1 rounded-lg border border-[#1a2233]/10 bg-white/[0.03] px-3 py-2 text-sm text-ink1 outline-none">
             <option value="">가게 추가…</option>
             {addable.slice(0, 40).map((s) => <option key={s.id} value={s.id}>{s.name} · {s.gu}</option>)}
           </select>
           <button onClick={() => { if (addSel) { toggleFavStore(addSel); setAddSel(""); } }}
-            className="rounded-lg border border-white/10 px-4 text-sm text-ink2">등록</button>
+            className="rounded-lg border border-[#1a2233]/10 px-4 text-sm text-ink2">등록</button>
         </div>
         {favStores.length === 0 ? (
           <p className="text-[12px] text-ink3">아직 자주 가는 가게가 없어요. 위에서 추가하거나 체크리스트에서 📌로 등록하세요.</p>
@@ -59,7 +59,7 @@ export function FavoritesPanel() {
               const s = storeById(id);
               const expanded = openStore === id;
               return (
-                <div key={id} className="rounded-lg border border-white/10 bg-white/[0.03]">
+                <div key={id} className="rounded-lg border border-[#1a2233]/10 bg-white/[0.03]">
                   <button onClick={() => setOpenStore(expanded ? null : id)}
                     className="flex w-full items-center gap-2 px-3 py-2.5 text-left">
                     <span className="text-[#f5c84b]">★</span>
@@ -68,7 +68,7 @@ export function FavoritesPanel() {
                     <span className="text-ink2">{expanded ? "∧" : "∨"}</span>
                   </button>
                   {expanded && (
-                    <div className="border-t border-white/5 px-3 py-2">
+                    <div className="border-t border-[#1a2233]/5 px-3 py-2">
                       <p className="mb-1 text-[10px] text-ink3">취급 품목 (자주 사는 품목 우선)</p>
                       {storeItems().map((it) => {
                         const lo = Math.min(it.market_price, it.supermarket_price);
@@ -103,7 +103,7 @@ export function FavoritesPanel() {
                 const m = itemMeta(n);
                 const lo = m ? Math.min(m.market_price, m.supermarket_price) : 0;
                 return (
-                  <div key={n} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5">
+                  <div key={n} className="flex items-center gap-2 rounded-lg border border-[#1a2233]/10 bg-white/[0.03] px-3 py-2.5">
                     <span className="text-lg">{m?.emoji}</span>
                     <span className="flex-1 text-[13px] font-bold"><span className="text-[#f5c84b]">★</span> {n}</span>
                     <span className="font-mono text-[13px] text-accent3">최저 {lo.toLocaleString()}원</span>

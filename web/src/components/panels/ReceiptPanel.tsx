@@ -73,7 +73,7 @@ export function ReceiptPanel() {
       </div>
 
       {/* 포인트 안내 */}
-      <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-[12px] text-ink2 space-y-1">
+      <div className="rounded-xl bg-[#1a2233]/4 border border-[#1a2233]/10 p-3 text-[12px] text-ink2 space-y-1">
         <div className="flex gap-2">🎁 <span>1,000원당 <b className="text-yellow-400">10P</b> 적립</span></div>
         <div className="flex gap-2">🛍️ <span>10,000P 달성 시 <b className="text-yellow-400">500원 쿠폰</b> 지급</span></div>
         <div className="flex gap-2">📚 <span>가게 취급 품목 자동 학습 → <b className="text-accent">더 정확한 가게 추천</b></span></div>
@@ -88,7 +88,7 @@ export function ReceiptPanel() {
               value={storeInput}
               onChange={(e) => setStoreInput(e.target.value)}
               placeholder="예: 인천종합식품마트"
-              className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-[13px] text-ink1 placeholder:text-ink3 outline-none"
+              className="w-full rounded-xl bg-[#1a2233]/4 border border-[#1a2233]/10 px-3 py-2 text-[13px] text-ink1 placeholder:text-ink3 outline-none"
             />
           </div>
           <button
@@ -106,12 +106,12 @@ export function ReceiptPanel() {
       {/* step: preview */}
       {step === "preview" && preview && (
         <div className="space-y-3">
-          <div className="relative rounded-2xl overflow-hidden border border-white/10">
+          <div className="relative rounded-2xl overflow-hidden border border-[#1a2233]/10">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={preview} alt="영수증 미리보기" className="w-full max-h-64 object-contain bg-black/20" />
           </div>
           <div className="flex gap-2">
-            <button onClick={reset} className="flex-1 rounded-xl border border-white/10 py-2.5 text-[13px] text-ink2 hover:bg-white/5">
+            <button onClick={reset} className="flex-1 rounded-xl border border-[#1a2233]/10 py-2.5 text-[13px] text-ink2 hover:bg-[#1a2233]/4">
               다시 선택
             </button>
             <button onClick={handleScan} className="flex-1 rounded-xl bg-yellow-400/20 border border-yellow-400/40 py-2.5 text-[13px] font-bold text-yellow-400 hover:bg-yellow-400/30">
@@ -141,8 +141,8 @@ export function ReceiptPanel() {
           </div>
 
           {/* 인식된 품목 */}
-          <div className="rounded-xl bg-white/5 border border-white/10 overflow-hidden">
-            <div className="px-3 py-2 border-b border-white/10 text-[11px] font-bold text-ink3 uppercase tracking-wide">
+          <div className="rounded-xl bg-[#1a2233]/4 border border-[#1a2233]/10 overflow-hidden">
+            <div className="px-3 py-2 border-b border-[#1a2233]/10 text-[11px] font-bold text-ink3 uppercase tracking-wide">
               인식된 품목 ({result.items.length}건)
             </div>
             <div className="divide-y divide-white/5 max-h-48 overflow-y-auto [scrollbar-width:thin]">
@@ -156,7 +156,7 @@ export function ReceiptPanel() {
                 </div>
               ))}
             </div>
-            <div className="px-3 py-2 border-t border-white/10 flex justify-between text-[13px]">
+            <div className="px-3 py-2 border-t border-[#1a2233]/10 flex justify-between text-[13px]">
               <span className="text-ink3">합계</span>
               <span className="font-extrabold text-accent">{result.total.toLocaleString()}원</span>
             </div>
@@ -167,7 +167,7 @@ export function ReceiptPanel() {
             📚 <span><b>{result.store_name}</b> 품목 정보가 학습됐어요. 다음 장보기에 반영됩니다!</span>
           </div>
 
-          <button onClick={reset} className="w-full rounded-xl border border-white/10 py-2.5 text-[13px] text-ink2 hover:bg-white/5">
+          <button onClick={reset} className="w-full rounded-xl border border-[#1a2233]/10 py-2.5 text-[13px] text-ink2 hover:bg-[#1a2233]/4">
             다른 영수증 등록하기
           </button>
         </div>
@@ -181,7 +181,7 @@ export function ReceiptPanel() {
             <div className="text-[13px] text-red-400">영수증 분석에 실패했어요.</div>
             <div className="text-[11px] text-ink3">{errMsg}</div>
           </div>
-          <button onClick={reset} className="w-full rounded-xl border border-white/10 py-2.5 text-[13px] text-ink2 hover:bg-white/5">
+          <button onClick={reset} className="w-full rounded-xl border border-[#1a2233]/10 py-2.5 text-[13px] text-ink2 hover:bg-[#1a2233]/4">
             다시 시도
           </button>
         </div>
