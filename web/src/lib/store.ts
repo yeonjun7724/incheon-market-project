@@ -61,11 +61,11 @@ export const useApp = create<AppState>((set) => ({
   setLoc: (lat, lng) => set({ lat, lng }),
   setRadius: (radiusM) => set({ radiusM }),
 
-  mapStyle: "mapbox://styles/mapbox/dark-v11",
+  mapStyle: "mapbox://styles/mapbox/streets-v12",
   toggleMapStyle: () => set((s) => ({
-    mapStyle: s.mapStyle.includes("dark")
+    mapStyle: s.mapStyle.includes("streets")
       ? "mapbox://styles/mapbox/light-v11"
-      : "mapbox://styles/mapbox/dark-v11",
+      : "mapbox://styles/mapbox/streets-v12",
   })),
 
   selectedStore: null,

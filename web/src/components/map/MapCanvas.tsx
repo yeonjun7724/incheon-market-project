@@ -122,9 +122,12 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
         // @ts-expect-error geometry coords
         map.easeTo({ center: cl.geometry.coordinates, zoom });
       });
-      return;
     }
-    if (!feats?.length) setLoc(e.lngLat.lat, e.lngLat.lng);
+  }
+
+  function handleDblClick(e: MapMouseEvent) {
+    e.preventDefault();
+    setLoc(e.lngLat.lat, e.lngLat.lng);
   }
 
   return (
@@ -138,6 +141,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
         style={{ position: "fixed", inset: 0, width: "100vw", height: "100vh" }}
         interactiveLayerIds={["clusters", "unclustered"]}
         onClick={handleClick}
+        onDblClick={handleDblClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         onLoad={() => setFetchKey((k) => k + 1)}
