@@ -1,90 +1,94 @@
-"""GET /items — DB 기반 품목. 도매가 → 소매가 변환 + 가격 없으면 AI 추론."""
+"""
+core/items.py
+품목 로더 — items_seed.csv 제거, DB 전용으로 전환.
+DB 없을 때 빈 DataFrame 반환 (앱은 항상 동작).
+"""
 import os
-import json
 import pandas as pd
-from fastapi import APIRouter
-from core.items import load_items
 
-router = APIRouter(prefix="/items", tags=["items"])
-
-_OPENAI_KEY   = os.getenv("OPENAI_API_KEY", "")
-_OPENAI_MODEL = "gpt-4o-mini"
-
-# 도매→소매 변환 계수 (카테고리별)
-_RETAIL_FACTOR: dict[str, float] = {
-    "채소류":   1.55,
-    "과실류":   1.50,
-    "곡류":     1.40,
-    "축산물":   1.50,
-    "수산물":   1.60,
-    "특용작물류": 1.45,
-    "가공식품":  1.30,
+# 이모지 매핑 (item_key 기준)
+EMOJI_MAP: dict[str, str] = {
+    "계란": "🥚", "두부": "🧊", "돼지고기앞다리": "🥩", "돼지/앞다리": "🥩",
+    "닭가슴살": "🍗", "닭/닭가슴살": "🍗", "닭/육계": "🍗",
+    "콩나물": "🌱", "애호박": "🥒", "호박/애호박": "🥒",
+    "양파": "🧅", "양파/양파": "🧅",
+    "대파": "🌿", "파/대파": "🌿",
+    "배추": "🥬", "시금치": "🍃",
+    "쌀": "🍚", "감자": "🥔", "고구마": "🍠",
+    "사과": "🍎", "바나나": "🍌",
+    "참기름": "🫙", "고추장": "🌶️", "된장": "🟤", "간장": "🍶", "두유": "🥛",
+    "당면": "🍜", "마늘": "🧄", "고춧가루": "🌶️", "미역": "🌿",
+    "된장찌개": "🍲",
 }
-_RETAIL_FACTOR_DEFAULT = 1.50   # 카테고리 미매핑 시
+
+# DB item_key → 앱 재료명 별칭 (AI가 뱉는 한국어 재료명 → DB item_key 역매핑)
+# 여러 표현 → 하나의 item_key
+ALIAS_TO_KEY: dict[str, str] = {
+    # 돼지고기 계열
+    "돼지앞다리": "돼지고기앞다리",
+    "돼지고기": "돼지고기앞다리",
+    "삼겹살": "돼지고기앞다리",
+    "돼지": "돼지고기앞다리",
+    # 닭고기 계열
+    "닭가슴살": "닭가슴살",
+    "닭고기": "닭가슴살",
+    "닭": "닭가슴살",
+    # 채소
+    "파": "대파",
+    "쪽파": "대파",
+    "호박": "애호박",
+    "고구마": "고구마",
+    "감자": "감자",
+    "양배추": "배추",
+    # 양념
+    "고추가루": "고춧가루",
+    "고추 가루": "고춧가루",
+    "들기름": "참기름",
+    # 공통 표현
+    "콩나물": "콩나물",
+    "시금치": "시금치",
+    "대파": "대파",
+    "양파": "양파",
+    "쌀": "쌀",
+    "계란": "계란",
+    "달걀": "계란",
+    "두부": "두부",
+    "사과": "사과",
+    "바나나": "바나나",
+    "두유": "두유",
+    "간장": "간장",
+    "된장": "된장",
+    "고추장": "고추장",
+    "참기름": "참기름",
+    "배추": "배추",
+    "당면": "당면",
+    "마늘": "마늘",
+    "미역": "미역",
+    "고춧가루": "고춧가루",
+    "애호박": "애호박",
+}
 
 
-def _wholesale_to_retail(price: float, category: str) -> int:
-    """도매 중앙값 → 소매가 추정."""
-    factor = _RETAIL_FACTOR.get(category, _RETAIL_FACTOR_DEFAULT)
-    return round(price * factor / 10) * 10   # 10원 단위 반올림
-
-
-_INFERRED_CACHE: dict[str, int] = {}   # item_key → 추론 가격 (런타임 캐시)
-
-def _infer_price_with_ai(item_key: str, category: str, unit: str) -> int | None:
-    """OpenAI로 한국 소매가 추론. 실패 시 None."""
-    if not _OPENAI_KEY:
-        return None
-    if item_key in _INFERRED_CACHE:
-        return _INFERRED_CACHE[item_key]
-    try:
-        import openai
-        client = openai.OpenAI(api_key=_OPENAI_KEY)
-        resp = client.chat.completions.create(
-            model=_OPENAI_MODEL,
-            max_tokens=60,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "당신은 한국 식품 가격 전문가입니다. "
-                        "품목명과 단위를 주면 현재 한국 일반 마트 소매가격을 숫자(원)로만 답하세요. "
-                        "숫자만, 단위 없이, 예: 2500"
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": f"품목: {item_key}, 분류: {category}, 단위: {unit}",
-                },
-            ],
-            response_format={"type": "text"},
-        )
-        raw = resp.choices[0].message.content.strip().replace(",", "").replace("원", "")
-        price = int(float(raw))
-        if 50 <= price <= 500000:
-            _INFERRED_CACHE[item_key] = price
-            return price
-    except Exception:
-        pass
-    return None
-
-
-@router.get("")
-def items():
-    """DB 기반 품목 반환. items_seed.csv 미사용."""
-    df = load_items()
-    if df.empty:
-        return []
-    return df.to_dict(orient="records")
-
-
-@router.get("/db")
-def items_db():
+def normalize_ingredient(name: str) -> str:
     """
-    daily_prices DB → 소매가 기준 품목 목록.
-    - 소매가(KAMIS) 있으면 그대로 사용
-    - 없으면 도매 중앙값 × 1.4~1.6 소매가 변환
-    - 둘 다 없으면 OpenAI로 추론
+    AI가 반환한 재료명 → DB item_key 정규화.
+    직접 매핑 우선, 없으면 원문 반환.
+    """
+    n = name.strip()
+    if n in ALIAS_TO_KEY:
+        return ALIAS_TO_KEY[n]
+    # 부분일치 (예: '닭가슴살(200g)' → '닭가슴살')
+    for alias, key in ALIAS_TO_KEY.items():
+        if alias in n:
+            return key
+    return n
+
+
+def load_items() -> pd.DataFrame:
+    """
+    DB(daily_prices)에서 품목 로드.
+    DB 없으면 빈 DataFrame 반환.
+    컬럼: code, name, category, unit, emoji, avg_price, market_price, supermarket_price
     """
     try:
         from core.db import get_engine
@@ -94,10 +98,12 @@ def items_db():
             df = pd.read_sql(text("""
                 SELECT DISTINCT ON (item_key)
                     item_key,
-                    gds_lclsf_nm  AS category,
+                    gds_lclsf_nm AS category,
                     소매가,
                     kamis_unit,
-                    중앙값
+                    중앙값,
+                    최저가,
+                    최고가
                 FROM daily_prices
                 WHERE item_key IS NOT NULL AND item_key != ''
                 ORDER BY item_key,
@@ -105,159 +111,43 @@ def items_db():
                     소매가 ASC NULLS LAST
             """), conn)
     except Exception:
-        return []
+        return pd.DataFrame(columns=[
+            "code", "name", "category", "unit", "emoji",
+            "avg_price", "market_price", "supermarket_price",
+        ])
 
     if df.empty:
-        return []
+        return pd.DataFrame(columns=[
+            "code", "name", "category", "unit", "emoji",
+            "avg_price", "market_price", "supermarket_price",
+        ])
 
-    df["unit"]  = df["kamis_unit"].fillna("원/kg")
+    df["unit"]     = df["kamis_unit"].fillna("원/kg")
     df["category"] = df["category"].fillna("기타")
 
-    result = []
-    for _, row in df.iterrows():
-        item_key = row["item_key"]
-        category = row["category"]
-        unit     = row["unit"]
-        소매가    = row.get("소매가")
-        중앙값    = row.get("중앙값")
+    # 도매→소매 변환 계수
+    _FACTOR = {
+        "채소류": 1.55, "과실류": 1.50, "곡류": 1.40,
+        "축산물": 1.50, "수산물": 1.60, "특용작물류": 1.45,
+        "가공식품": 1.30,
+    }
 
-        # 가격 결정 순서
+    def _retail(row) -> int:
+        소매가 = row.get("소매가")
+        중앙값 = row.get("중앙값")
         if pd.notna(소매가) and 소매가 > 0:
-            price      = round(float(소매가), 0)
-            price_type = "소매가"
-        elif pd.notna(중앙값) and 중앙값 > 0:
-            price      = _wholesale_to_retail(float(중앙값), category)
-            price_type = "도매→소매추정"
-        else:
-            # AI 추론
-            inferred = _infer_price_with_ai(item_key, category, unit)
-            if inferred:
-                price      = float(inferred)
-                price_type = "AI추론"
-            else:
-                continue   # 가격 없으면 목록에서 제외
+            return int(소매가)
+        if pd.notna(중앙값) and 중앙값 > 0:
+            factor = _FACTOR.get(row["category"], 1.50)
+            return round(int(중앙값) * factor / 10) * 10
+        return 0
 
-        result.append({
-            "item_key":   item_key,
-            "name":       item_key,
-            "category":   category,
-            "price":      price,
-            "unit":       unit,
-            "price_type": price_type,
-        })
+    df["avg_price"]         = df.apply(_retail, axis=1)
+    df["market_price"]      = (df["avg_price"] * 0.92).astype(int)
+    df["supermarket_price"] = (df["avg_price"] * 1.08).astype(int)
+    df["emoji"]    = df["item_key"].map(EMOJI_MAP).fillna("🛒")
+    df["code"]     = df["item_key"]
+    df["name"]     = df["item_key"]
 
-    result.sort(key=lambda x: x["category"])
-    return result
-
-
-# ── POST /items/infer ─────────────────────────────────────────
-from pydantic import BaseModel
-
-class InferReq(BaseModel):
-    names: list[str]
-
-
-def _infer_ingredient_full(item_key: str) -> dict | None:
-    """DB에 없는 재료의 가격·단위·카테고리를 OpenAI로 추론. 실패 시 None."""
-    if not _OPENAI_KEY:
-        return None
-    if item_key in _INFERRED_CACHE:
-        return {"price": _INFERRED_CACHE[item_key], "unit": "원/단위", "category": "기타", "price_type": "AI추론"}
-    try:
-        import openai
-        client = openai.OpenAI(api_key=_OPENAI_KEY)
-        resp = client.chat.completions.create(
-            model=_OPENAI_MODEL,
-            max_tokens=100,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "당신은 한국 식품 가격 전문가입니다. "
-                        "재료명을 주면 한국 일반 마트/시장 기준의 가격 정보를 JSON으로 답하세요. "
-                        "단위는 실제 요리 1~2인분에 사용하는 소량 기준으로 답하세요 "
-                        "(예: 꽃게→1마리, 생강→50g, 마늘→100g, 양파→1개, 대파→1/2단). "
-                        '형식: {"price": 숫자, "unit": "단위문자열", "category": "카테고리"} '
-                        '예: {"price": 8000, "unit": "1마리(500g)", "category": "수산물"}'
-                    ),
-                },
-                {"role": "user", "content": f"재료명: {item_key}"},
-            ],
-            response_format={"type": "json_object"},
-        )
-        obj = json.loads(resp.choices[0].message.content.strip())
-        price = int(float(str(obj.get("price", 0)).replace(",", "")))
-        if 50 <= price <= 500000:
-            _INFERRED_CACHE[item_key] = price
-            return {
-                "price": price,
-                "unit": str(obj.get("unit", "원/단위")),
-                "category": str(obj.get("category", "기타")),
-                "price_type": "AI추론",
-            }
-    except Exception:
-        pass
-    return None
-
-
-@router.post("/infer")
-def infer_items(req: InferReq):
-    """재료명 리스트 → 가격 정보 반환 (DB → EXTRA_ITEMS → OpenAI 순)."""
-    from core.items import normalize_ingredient, EMOJI_MAP
-    from core.recipes import EXTRA_ITEMS
-
-    df = load_items()
-    db_by_key: dict[str, dict] = {}
-    if not df.empty:
-        for _, row in df.iterrows():
-            db_by_key[str(row["name"])] = row.to_dict()
-
-    result: dict[str, dict] = {}
-
-    from core.recipes import cooking_price
-
-    for raw_name in req.names:
-        key = normalize_ingredient(raw_name)
-
-        if key in db_by_key:
-            r = db_by_key[key]
-            base_price = int(r.get("avg_price", 0))
-            if base_price > 0:
-                base_unit = r.get("unit", "원/kg")
-                unit, price = cooking_price(key, base_price, base_unit)
-                result[raw_name] = {
-                    "item_key": key, "name": key,
-                    "category": r.get("category", "기타"), "price": price,
-                    "unit": unit, "price_type": "DB",
-                    "emoji": r.get("emoji", EMOJI_MAP.get(key, "🛒")),
-                }
-                continue
-
-        if key in EXTRA_ITEMS:
-            ei = EXTRA_ITEMS[key]
-            unit, price = cooking_price(key, ei[2], ei[1])
-            result[raw_name] = {
-                "item_key": key, "name": key,
-                "category": ei[0], "price": price,
-                "unit": unit, "price_type": "참조가",
-                "emoji": ei[5],
-            }
-            continue
-
-        info = _infer_ingredient_full(key)
-        if info and info["price"] > 0:
-            unit, price = cooking_price(key, info["price"], info["unit"])
-            result[raw_name] = {
-                "item_key": key, "name": key,
-                "category": info["category"], "price": price,
-                "unit": unit, "price_type": "AI추론",
-                "emoji": EMOJI_MAP.get(key, "🛒"),
-            }
-        else:
-            result[raw_name] = {
-                "item_key": key, "name": key,
-                "category": "기타", "price": 0,
-                "unit": "", "price_type": "미확인", "emoji": "❓",
-            }
-
-    return result
+    return df[["code", "name", "category", "unit", "emoji",
+               "avg_price", "market_price", "supermarket_price"]]
