@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Source, Layer } from "react-map-gl/mapbox";
+import { Source, Layer } from "react-map-gl/maplibre";
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
