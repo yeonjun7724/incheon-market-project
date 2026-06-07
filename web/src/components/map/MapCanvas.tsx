@@ -233,7 +233,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
       const src = map.getSource("stores") as GeoJSONSource;
       src.getClusterExpansionZoom(cl.properties?.cluster_id, (err: unknown, zoom: number | null | undefined) => {
         if (err || zoom == null) return;
-        map.easeTo({ center: (cl.geometry as GeoJSON.Point).coordinates as [number, number], zoom });
+        map.easeTo({ center: cl.geometry.coordinates, zoom });
       });
     }
   }

@@ -340,6 +340,12 @@ export function RoutePanel() {
       })}
 
       {/* ── 장보기 시작 버튼 ── */}
+      {/* 경로 미선택 시 안내 */}
+      {!routeChoice && (
+        <p className="text-center text-[12px] pb-1" style={{ color: "#8a96b0" }}>
+          위 경로 중 하나를 먼저 선택해 주세요
+        </p>
+      )}
       <button
         disabled={!routeChoice}
         onClick={() => setPanel(null)}
@@ -349,7 +355,7 @@ export function RoutePanel() {
           transition: "background 400ms ease, opacity 350ms ease",
         }}
       >
-        🚶 이 경로로 장보기 시작
+        {routeChoice ? `🗺️ ${routeChoice} 경로로 장보기 시작` : "🚶 경로를 선택해 주세요"}
       </button>
     </div>
   );

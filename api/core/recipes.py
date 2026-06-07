@@ -86,6 +86,48 @@ EXTRA_ITEMS: dict[str, tuple] = {
     "애호박":   ("채소",     "1개",   1500,  1300,  1700,  "🥬"),
 }
 
+# ──────────────────────────────────────────────────────────────
+# 재료별 1회 요리 적정 구매 단위 & 비율
+#   ratio = 실제 구매량 / DB 포장 단위
+#   예) 양파 DB=1kg, 요리에는 200g → ratio=0.2
+# ──────────────────────────────────────────────────────────────
+COOKING_UNIT: dict[str, tuple] = {
+    "양파":              ("1개(200g)",    0.20),
+    "대파":              ("1/2단",        0.50),
+    "감자":              ("2개(400g)",    0.40),
+    "배추":              ("1/4포기",      0.25),
+    "시금치":            ("200g",         1.00),
+    "콩나물":            ("200g",         1.00),
+    "애호박":            ("1개",          1.00),
+    "고구마":            ("2개(400g)",    0.40),
+    "돼지고기앞다리":    ("300g",         3.00),
+    "닭가슴살":          ("300g",         3.00),
+    "계란":              ("6개",          0.20),
+    "두부":              ("300g",         1.00),
+    "쌀":                ("2인분(400g)", 0.40),
+    "사과":              ("1개",          0.33),
+    "바나나":            ("1/2송이",      0.50),
+    "마늘":              ("100g",         1.00),
+    "생강":              ("50g",          0.50),
+    "고춧가루":          ("100g",         1.00),
+    "미역":              ("50g",          1.00),
+    "된장":              ("150g",         0.30),
+    "참기름":            ("50ml",         0.28),
+    "간장":              ("200ml",        1.00),
+    "고추장":            ("150g",         0.30),
+    "당면":              ("300g",         1.00),
+    "두유":              ("2팩",          0.33),
+}
+
+
+def cooking_price(item_key: str, base_price: int, base_unit: str) -> tuple:
+    """적정 구매 단위와 조정된 가격 반환."""
+    if item_key in COOKING_UNIT:
+        display_unit, ratio = COOKING_UNIT[item_key]
+        adjusted = max(100, round(base_price * ratio / 100) * 100)
+        return display_unit, adjusted
+    return base_unit, base_price
+
 
 def _normalize_ingredient(name: str) -> str:
     """AI 재료명 → DB item_key 정규화 (core/items.py의 normalize_ingredient와 동기화)."""
@@ -362,22 +404,23 @@ def _assign_items(ingredients: list[str], items_df: pd.DataFrame,
                 unit  = ""
             elif ing in items_by_key:
                 row = items_by_key[ing]
-                price = store_item_price(store_id, store["type"], row)
+                base_price = store_item_price(store_id, store["type"], row)
                 emoji = row.get("emoji", "🛒")
-                unit  = row.get("unit", "")
+                base_unit = row.get("unit", "")
+                unit, price = cooking_price(ing, base_price, base_unit)
             elif ing in EXTRA_ITEMS:
                 ei = EXTRA_ITEMS[ing]
                 factor = _TYPE_FACTOR.get(store["type"], 1.0)
-                price = round(ei[2] * factor / 100) * 100
+                base_price = round(ei[2] * factor / 100) * 100
+                unit, price = cooking_price(ing, base_price, ei[1])
                 emoji = ei[5]
-                unit  = ei[1]
             else:
                 # DB에도 EXTRA에도 없는 품목: OpenAI로 가격 추론
-                base_price = _infer_item_price_ai(ing)
+                raw_price = _infer_item_price_ai(ing)
                 factor = _TYPE_FACTOR.get(store["type"], 1.0)
-                price = max(100, round(base_price * factor / 100) * 100)
+                base_price = max(100, round(raw_price * factor / 100) * 100)
+                unit, price = cooking_price(ing, base_price, "")
                 emoji = "🛒"
-                unit  = ""
 
             matched_ings.append((ing, price, emoji, unit))
 
