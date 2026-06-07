@@ -48,7 +48,7 @@ export function RoutePanel() {
       Object.entries(routePlans).map(async ([key, plan]) => {
         if (!plan?.stops?.length) return [key, null] as const;
         const wp: [number, number][] = plan.stops.map((s) => [s.lng, s.lat]);
-        const r = await getMapboxRoute([lng, lat], wp, token).catch(() => null);
+        const r = await getMapboxRoute([lng, lat], wp, token, travelMode).catch(() => null);
         return [key, r] as const;
       })
     ).then((results) => {
@@ -58,9 +58,13 @@ export function RoutePanel() {
         Object.entries(routeMap).filter(([, v]) => v !== null)
       ) as Record<string, RouteWithMapbox>;
       setAllMapboxRoutes(validRoutes);
+      // 현재 선택된 경로도 갱신
+      if (routeChoice && routeMap[routeChoice]) {
+        setMapboxRoute(routeMap[routeChoice]);
+      }
       setLoadingMb(false);
     });
-  }, [routePlans, lat, lng]);
+  }, [routePlans, lat, lng, travelMode]);
 
   function handleChoose(key: string) {
     const sel = routeChoice === key;
@@ -338,7 +342,7 @@ export function RoutePanel() {
       {/* ── 장보기 시작 버튼 ── */}
       <button
         disabled={!routeChoice}
-        onClick={() => setPanel("checklist")}
+        onClick={() => setPanel(null)}
         className="w-full rounded-2xl py-4 text-[15px] font-bold text-white disabled:opacity-30"
         style={{
           background: routeChoice ? STRAT[routeChoice]?.color ?? "#0077b6" : "#8a96b0",

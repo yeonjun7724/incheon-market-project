@@ -16,7 +16,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
   const {
     lat, lng, radiusM, routePlans, routeChoice, setLoc,
     mapStyle, mapboxRoute, setMapboxRoute, allMapboxRoutes,
-    travelMode, setAllMapboxRoutes,
+    travelMode, setAllMapboxRoutes, setPanel,
   } = useApp();
   const [stores, setStores]   = useState<Store[]>([]);
   const [tooltip, setTooltip] = useState<Tooltip | null>(null);
@@ -99,7 +99,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
       return;
     }
     // routeSegments가 실제 경로 좌표 배열을 가짐 — 그 위를 따라 이동
-    const SPEED = 0.005;
+    const SPEED = 0.0008;
     // 구간마다 위상 다르게
     const phases = routeSegments.map((_, i) => i / Math.max(routeSegments.length, 1));
 
@@ -231,8 +231,8 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
     const cl = feats?.find((f) => f.layer?.id === "clusters");
     if (cl && map) {
       const src = map.getSource("stores") as GeoJSONSource;
-      src.getClusterExpansionZoom(cl.properties?.cluster_id, (err: unknown, zoom: number) => {
-        if (err) return;
+      src.getClusterExpansionZoom(cl.properties?.cluster_id, (err: unknown, zoom: number | null | undefined) => {
+        if (err || zoom == null) return;
         map.easeTo({ center: cl.geometry.coordinates, zoom });
       });
     }
@@ -561,6 +561,42 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
           </div>
         );
       })()}
+
+      {/* 체크리스트 이동 CTA */}
+      {routeChoice && (
+        <button
+          onClick={() => setPanel('checklist')}
+          style={{
+            position: 'fixed',
+            bottom: 88 + 64 + 8,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 601,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '12px 24px',
+            borderRadius: 999,
+            border: 'none',
+            cursor: 'pointer',
+            background: '#0077b6',
+            color: '#fff',
+            fontSize: 14,
+            fontWeight: 800,
+            boxShadow: '0 4px 20px rgba(0,119,182,0.40)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          🧾 체크리스트로 이동
+          <span style={{
+            fontSize: 11,
+            opacity: 0.85,
+            background: 'rgba(255,255,255,0.2)',
+            borderRadius: 8,
+            padding: '2px 8px',
+          }}>장볼 항목 확인 →</span>
+        </button>
+      )}
     </>
   );
 }
