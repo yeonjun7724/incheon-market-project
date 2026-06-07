@@ -46,15 +46,15 @@ interface AppState {
   setRoutePlans: (p: RoutePlans) => void;
   setRouteChoice: (k: string | null) => void;
 
+  // 이동 모드
+  travelMode: 'walking' | 'driving';
+  setTravelMode: (m: 'walking' | 'driving') => void;
+
   // Mapbox 실제 경로
   mapboxRoute: RouteWithMapbox | null;
   setMapboxRoute: (r: RouteWithMapbox | null) => void;
   allMapboxRoutes: Record<string, RouteWithMapbox>;
   setAllMapboxRoutes: (r: Record<string, RouteWithMapbox>) => void;
-
-  // 이동 수단
-  travelMode: "walking" | "driving";
-  setTravelMode: (m: "walking" | "driving") => void;
 
   // 영수증 포인트
   receiptPoints: number;
@@ -109,13 +109,13 @@ export const useApp = create<AppState>((set) => ({
   setRoutePlans: (routePlans) => set({ routePlans }),
   setRouteChoice: (routeChoice) => set({ routeChoice }),
 
+  travelMode: 'walking',
+  setTravelMode: (travelMode) => set({ travelMode, mapboxRoute: null, allMapboxRoutes: {} }),
+
   mapboxRoute: null,
   setMapboxRoute: (mapboxRoute) => set({ mapboxRoute }),
   allMapboxRoutes: {},
   setAllMapboxRoutes: (allMapboxRoutes) => set({ allMapboxRoutes }),
-
-  travelMode: "walking",
-  setTravelMode: (travelMode) => set({ travelMode }),
 
   receiptPoints: 0,
   addReceiptPoints: (p) => set((s) => ({ receiptPoints: s.receiptPoints + p })),

@@ -1,6 +1,6 @@
 import type {
   Store, Item, DbItem, Recipe, BasketResult, RoutePlans, Report,
-  RouteWithMapbox, ReceiptScanResult, MealRecommendationResult,
+  RouteWithMapbox, ReceiptScanResult,
 } from "./types";
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
@@ -46,12 +46,6 @@ export const optimizeBasket = (body: {
   budget: number; household: number; pref?: string; use_market?: boolean;
 }) => api<BasketResult>("/basket/optimize", { method: "POST", body: JSON.stringify(body) });
 
-export const recommendMeals = (body: {
-  pref: string; budget: number; household: number;
-}) => api<MealRecommendationResult>("/basket/meal-recommendations", {
-  method: "POST", body: JSON.stringify(body),
-});
-
 export const recommendRoutes = (body: {
   ingredients: string[]; lat: number; lng: number; radius?: number;
   budget?: number; household?: number; pref?: string; use_market?: boolean;
@@ -76,10 +70,11 @@ export async function getMapboxRoute(
   origin: [number, number],
   waypoints: [number, number][],
   accessToken: string,
-  profile: "walking" | "driving" = "walking",
+  mode: 'walking' | 'driving' = 'walking',
 ): Promise<RouteWithMapbox | null> {
   if (!waypoints.length) return null;
   const coords = [origin, ...waypoints].map(([lng, lat]) => `${lng},${lat}`).join(";");
+  const profile = mode === 'driving' ? 'driving-traffic' : 'walking';
   const url =
     `https://api.mapbox.com/directions/v5/mapbox/${profile}/${coords}` +
     `?geometries=geojson&overview=full&steps=false&access_token=${accessToken}`;

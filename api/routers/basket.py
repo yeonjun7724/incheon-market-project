@@ -3,7 +3,6 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from core.optimizer import optimize_basket, basket_summary
 from core.items import load_items
-from core.recipes import recommend_meals_ai, lookup_ingredient_info
 
 router = APIRouter(prefix="/basket", tags=["basket"])
 
@@ -13,23 +12,6 @@ class BasketReq(BaseModel):
     household: int = 2
     pref: str = "균형"
     use_market: bool = True
-
-
-class MealReq(BaseModel):
-    pref: str = "균형"
-    budget: int = 50000
-    household: int = 2
-
-
-@router.post("/meal-recommendations")
-def meal_recommendations(req: MealReq):
-    items = load_items()
-    meals_raw = recommend_meals_ai(req.pref, req.budget, req.household)
-    result = []
-    for m in meals_raw:
-        ings = [lookup_ingredient_info(ing, items) for ing in m["ingredients"]]
-        result.append({"dish": m["dish"], "ingredients": ings})
-    return {"meals": result}
 
 
 @router.post("/optimize")

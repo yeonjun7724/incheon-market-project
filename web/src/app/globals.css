@@ -3,14 +3,13 @@
 @tailwind utilities;
 
 :root {
-  /* Streets 지도 팔레트에서 추출한 UI 컬러 */
-  --ink1:    #1a2233;   /* 주 텍스트 — 지도 도로명 색과 유사 */
-  --ink2:    #4a5a78;   /* 보조 텍스트 */
-  --ink3:    #8a96b0;   /* 힌트 텍스트 */
-  --accent:  #0077b6;   /* 전통시장 파랑 (마커 색과 통일) */
-  --accent2: #e63946;   /* 클러스터 레드 (마커 색과 통일) */
-  --accent3: #f77f00;   /* 골목상권 오렌지 (마커 색과 통일) */
-  --bg:      #f5f0e8;   /* Streets 배경 베이지 */
+  --ink1:    #1a2233;
+  --ink2:    #4a5a78;
+  --ink3:    #8a96b0;
+  --accent:  #0077b6;
+  --accent2: #e63946;
+  --accent3: #f77f00;
+  --bg:      #f5f0e8;
   --surface: rgba(255,255,255,0.92);
   --border:  rgba(26,34,51,0.10);
 }
@@ -26,9 +25,20 @@ html, body {
   overscroll-behavior: none;
 }
 
-.text-ink1   { color: var(--ink1); }
-.text-ink2   { color: var(--ink2); }
-.text-ink3   { color: var(--ink3); }
+/* ── 애니메이션 — 느리고 부드럽게 ── */
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: spin-slow 1.8s linear infinite;
+}
+
+/* 모든 transition 기본값 완만하게 */
+.transition { transition-duration: 350ms !important; transition-timing-function: cubic-bezier(0.4,0,0.2,1) !important; }
+
+.text-ink1    { color: var(--ink1); }
+.text-ink2    { color: var(--ink2); }
+.text-ink3    { color: var(--ink3); }
 .text-accent  { color: var(--accent); }
 .text-accent2 { color: var(--accent2); }
 .text-accent3 { color: var(--accent3); }
