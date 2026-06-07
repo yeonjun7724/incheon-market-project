@@ -231,10 +231,8 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
     const cl = feats?.find((f) => f.layer?.id === "clusters");
     if (cl && map) {
       const src = map.getSource("stores") as GeoJSONSource;
-      // @ts-expect-error mapbox typing
       src.getClusterExpansionZoom(cl.properties?.cluster_id, (err: unknown, zoom: number) => {
         if (err) return;
-        // @ts-expect-error geometry coords
         map.easeTo({ center: cl.geometry.coordinates, zoom });
       });
     }
