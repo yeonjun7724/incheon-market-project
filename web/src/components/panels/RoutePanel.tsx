@@ -5,7 +5,7 @@ import { recommendRoutes, getMapboxRoute } from "@/lib/api";
 import type { RouteWithMapbox } from "@/lib/types";
 
 const STRAT: Record<string, { icon: string; label: string; desc: string; color: string }> = {
-  최저예산: { icon: "💰", label: "최저예산", desc: "전통시장 우선 • 가장 저렴하게", color: "#f77f00" },
+  최저예산: { icon: "💰", label: "최저예산", desc: "전통시장 우선 • 가장 저렴하게", color: "#e85d04" },
   최소거리: { icon: "📍", label: "최소거리", desc: "가까운 가게 순 • 동선 최소화",  color: "#0077b6" },
   최소경유: { icon: "🧭", label: "최소경유", desc: "한 가게에서 최대한 • 경유지 최소", color: "#2d9e5f" },
 };

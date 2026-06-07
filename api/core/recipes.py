@@ -387,6 +387,52 @@ def _assign_items(ingredients: list[str], items_df: pd.DataFrame,
     return result
 
 
+def _build_plan_greedy(ingredients: list[str], store_assignments: dict,
+                       origin: tuple[float, float]) -> dict | None:
+    """최소경유 전용: 한 가게에서 최대한 많은 재료를 구매. 경유지 수를 최소화."""
+    if not store_assignments:
+        return None
+
+    remaining = set(ingredients)
+    stops, by_store = [], {}
+    total_budget = 0
+
+    for sid, info in store_assignments.items():
+        if not remaining:
+            break
+        # 이 가게에서 살 수 있는 재료 중 아직 못 산 것 전부
+        buyable = [i for i in info["items"] if i[0] in remaining]
+        if not buyable:
+            continue
+        stops.append(info["row"])
+        by_store[sid] = {"row": info["row"], "items": buyable}
+        total_budget += sum(p for _, p, _, _ in buyable)
+        remaining -= {i[0] for i in buyable}
+
+    if not stops:
+        return None
+
+    coords = [(origin[0], origin[1])] + [
+        (float(s["lat"]) if isinstance(s, dict) else float(s["lat"]),
+         float(s["lng"]) if isinstance(s, dict) else float(s["lng"]))
+        for s in stops
+    ]
+    dist = sum(
+        _haversine(coords[i][0], coords[i][1], coords[i+1][0], coords[i+1][1])
+        for i in range(len(coords) - 1)
+    )
+    total_min = round(dist / 80 + len(stops) * 10)
+
+    return {
+        "stops": stops,
+        "by_store": by_store,
+        "budget": total_budget,
+        "distance_m": dist,
+        "minutes": total_min,
+        "n_stops": len(stops),
+    }
+
+
 def _build_plan(ingredients: list[str], store_assignments: dict,
                 origin: tuple[float, float]) -> dict | None:
     if not store_assignments:
@@ -500,12 +546,17 @@ def recommend_routes(ingredients: list[str], items_df: pd.DataFrame,
             p["over_budget"] = p["budget"] > budget
         strategies["최소거리"] = p
 
-    # 최소경유: 커버리지 큰 순
+    # 최소경유: 한 가게에서 최대한 많이 구매
+    # 정렬 기준: ① 커버 재료 수 많은 순 ② 같으면 가까운 순
     cov_sorted = dict(sorted(
         assignments.items(),
-        key=lambda kv: -len(kv[1]["items"])
+        key=lambda kv: (
+            -len(kv[1]["items"]),
+            _haversine(origin[0], origin[1],
+                       float(kv[1]["row"]["lat"]), float(kv[1]["row"]["lng"]))
+        )
     ))
-    p = _build_plan(ingredients, cov_sorted, origin)
+    p = _build_plan_greedy(ingredients, cov_sorted, origin)
     if p:
         p["budget"] = round(p["budget"] * hh_scale)
         p["household"] = household

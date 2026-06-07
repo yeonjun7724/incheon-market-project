@@ -21,6 +21,8 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
   const [tooltip, setTooltip] = useState<Tooltip | null>(null);
   const [fetchKey, setFetchKey] = useState(0);
   const mapRef = useRef<MapRef | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+  const dashOffsetRef = useRef(0);
   const isDark = mapStyle.includes("dark");
 
   // ── 상점 로드 (버그 수정: retry + 방어) ──────────────────────
@@ -84,13 +86,88 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
 
   const plan = routeChoice ? routePlans[routeChoice] : null;
 
+  // 경로 이동 애니메이션 — 각 구간 위를 점이 흘러가는 효과
+  const [animDots, setAnimDots] = useState<{ id: number; lng: number; lat: number; color: string }[]>([]);
+
+  useEffect(() => {
+    if (!plan) {
+      setAnimDots([]);
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      return;
+    }
+    const SEG_COLORS_LOCAL = ["#0077b6", "#e85d04", "#2d9e5f", "#7b2d8b", "#c1121f", "#f77f00"];
+    const allPts: [number, number][] = [[lng, lat], ...plan.stops.map((s: {lng: number; lat: number}) => [s.lng, s.lat] as [number, number])];
+    const segments = allPts.slice(0, -1).map((pt, i) => ({
+      c0: pt,
+      c1: allPts[i + 1],
+      color: SEG_COLORS_LOCAL[i % SEG_COLORS_LOCAL.length],
+    }));
+    // 구간마다 위상(phase) 다르게 — 동시에 출발하지 않고 연속된 느낌
+    const phases = segments.map((_, i) => i / segments.length);
+    const SPEED = 0.006;
+
+    function animate() {
+      const dots = segments.map((seg, i) => {
+        phases[i] = (phases[i] + SPEED) % 1;
+        const t = phases[i];
+        return {
+          id: i,
+          lng: seg.c0[0] + (seg.c1[0] - seg.c0[0]) * t,
+          lat: seg.c0[1] + (seg.c1[1] - seg.c0[1]) * t,
+          color: seg.color,
+        };
+      });
+      setAnimDots(dots);
+      animFrameRef.current = requestAnimationFrame(animate);
+    }
+    animFrameRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      setAnimDots([]);
+    };
+  }, [plan, lat, lng]);
+
   // 전략별 색상 (경로 라인 + 경유지 마커)
   const STRAT_COLOR: Record<string, string> = {
-    최저예산: "#f5a623",
-    최소거리: "#63b7ff",
-    최소경유: "#4ade80",
+    최저예산: "#e85d04",   // 오렌지레드
+    최소거리: "#0077b6",   // 블루 (마커 색과 통일)
+    최소경유: "#2d9e5f",   // 그린 (대형유통 마커 색과 통일)
   };
-  const routeColor = routeChoice ? (STRAT_COLOR[routeChoice] ?? "#ff5470") : "#ff5470";
+  const routeColor = routeChoice ? (STRAT_COLOR[routeChoice] ?? "#0077b6") : "#0077b6";
+
+  // 구간별 색상 팔레트 (1→2 파랑, 2→3 오렌지, 3→4 그린, 4→5 퍼플...)
+  const SEG_COLORS = ["#0077b6", "#e85d04", "#2d9e5f", "#7b2d8b", "#c1121f", "#f77f00"];
+
+  // 선택된 경로를 구간별로 분리
+  const routeSegments = useMemo(() => {
+    if (!plan) return [];
+    const points = [[lng, lat], ...plan.stops.map((s: {lng: number; lat: number}) => [s.lng, s.lat])];
+    return points.slice(0, -1).map((pt, i) => ({
+      id: i,
+      color: SEG_COLORS[i % SEG_COLORS.length],
+      coords: [pt, points[i + 1]],
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan, lat, lng]);
+
+  // 미선택 경로들 (흐린 단색 라인)
+  const unselectedRoutes = useMemo(() => {
+    return Object.entries(routePlans)
+      .filter(([key]) => key !== routeChoice)
+      .map(([key, p]) => ({
+        key,
+        color: STRAT_COLOR[key] ?? "#888",
+        geoData: {
+          type: "Feature" as const,
+          geometry: {
+            type: "LineString" as const,
+            coordinates: [[lng, lat], ...p.stops.map((s: {lng: number; lat: number}) => [s.lng, s.lat])],
+          },
+          properties: {},
+        },
+      }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routePlans, routeChoice, lat, lng]);
 
   function handleMouseMove(e: MapMouseEvent) {
     const map = mapRef.current;
@@ -271,29 +348,61 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
           />
         </Source>
 
-        {/* 경로 라인 */}
-        {routeGeoData && (
-          <Source id="route" type="geojson" data={routeGeoData}>
-            <Layer id="route-line" type="line"
+        {/* 미선택 경로 — 흐린 점선 */}
+        {unselectedRoutes.map(({ key, color, geoData }) => (
+          <Source key={`route-bg-${key}`} id={`route-bg-${key}`} type="geojson" data={geoData}>
+            <Layer id={`route-bg-line-${key}`} type="line"
               paint={{
-                "line-color": routeColor, "line-width": 5, "line-opacity": 0.88,
-                "line-dasharray": mapboxRoute ? [1] : [2, 2],
+                "line-color": color,
+                "line-width": 2,
+                "line-opacity": 0.30,
+                "line-dasharray": [3, 3],
               }}
             />
           </Source>
-        )}
+        ))}
 
-        {/* 경유지 번호 마커 */}
+        {/* 선택된 경로 — 구간별 다른 색 */}
+        {routeSegments.map(({ id, color, coords }) => (
+          <Source key={`seg-${id}`} id={`seg-${id}`} type="geojson" data={{
+            type: "Feature" as const,
+            geometry: { type: "LineString" as const, coordinates: coords },
+            properties: {},
+          }}>
+            <Layer id={`seg-line-${id}`} type="line"
+              paint={{
+                "line-color": color,
+                "line-width": 5,
+                "line-opacity": 0.95,
+              }}
+            />
+          </Source>
+        ))}
+
+        {/* 경유지 번호 마커 — 구간 색과 동일 */}
         {plan?.stops.map((s, i) => (
           <Marker key={`stop-${s.id}`} longitude={s.lng} latitude={s.lat} anchor="center">
             <div style={{
-              width: 28, height: 28, borderRadius: "50%",
-              background: routeColor, color: "#fff",
+              width: 30, height: 30, borderRadius: "50%",
+              background: SEG_COLORS[i % SEG_COLORS.length], color: "#fff",
               display: "flex", alignItems: "center", justifyContent: "center",
               fontWeight: 800, fontSize: 13,
               border: "2.5px solid #fff",
-              boxShadow: "0 2px 6px rgba(0,0,0,.45)",
+              boxShadow: "0 2px 8px rgba(0,0,0,.35)",
             }}>{i + 1}</div>
+          </Marker>
+        ))}
+
+        {/* 이동 애니메이션 점 — 각 구간 위를 흘러감 */}
+        {animDots.map(({ id, lng: dLng, lat: dLat, color }) => (
+          <Marker key={`dot-${id}`} longitude={dLng} latitude={dLat} anchor="center">
+            <div style={{
+              width: 12, height: 12, borderRadius: "50%",
+              background: color,
+              border: "2px solid #fff",
+              boxShadow: `0 0 6px ${color}aa`,
+              pointerEvents: "none",
+            }} />
           </Marker>
         ))}
       </Map>
