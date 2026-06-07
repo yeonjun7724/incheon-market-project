@@ -33,11 +33,12 @@ export function CartPanel() {
     // dbItems 로딩 중이면 잠시 대기 (최대 100ms)
     const run = () => {
       const missing = picked.filter((key) => {
-        const inDb        = dbItems.some((i) => i.item_key === key || i.name === key);
+        // 가격 > 0 인 DB 항목만 진짜 DB 등록으로 인정
+        const inDb        = dbItems.some((i) => (i.item_key === key || i.name === key) && i.price > 0);
         const inInferred  = key in inferredRef.current;
         const inferredPrice = inferredRef.current[key]?.price ?? -1;
         const isInferring = inferring.has(key);
-        // DB 없고, 추론 안 됐거나 가격 0인 항목 재시도
+        // DB에 가격 없고, 추론 안 됐거나 가격 0인 항목 재시도
         return !inDb && (!inInferred || inferredPrice === 0) && !isInferring;
       });
       if (!missing.length) return;
@@ -68,8 +69,11 @@ export function CartPanel() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [picked, dbItems]);
 
-  const meta = (key: string): DbItem | undefined =>
-    dbItems.find((i) => i.item_key === key || i.name === key) ?? inferredMap[key];
+  const meta = (key: string): DbItem | undefined => {
+    // 가격 있는 DB 항목 우선, 없으면 추론 결과
+    const dbItem = dbItems.find((i) => (i.item_key === key || i.name === key) && i.price > 0);
+    return dbItem ?? inferredMap[key];
+  };
 
   const qty = (key: string) => quantities[key] ?? 1;
   const changeQty = (key: string, delta: number) =>

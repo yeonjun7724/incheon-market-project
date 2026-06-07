@@ -140,7 +140,16 @@ def load_items() -> pd.DataFrame:
         if pd.notna(중앙값) and 중앙값 > 0:
             factor = _FACTOR.get(row["category"], 1.50)
             return round(int(중앙값) * factor / 10) * 10
-        return 0
+        # 소매가·중앙값 모두 없으면 AI 추론
+        try:
+            from routers.items import _infer_price_with_ai, _fallback_price
+            item_key = row.get("item_key", "")
+            inferred = _infer_price_with_ai(item_key, row.get("category", "기타"), row.get("unit", "원/kg"))
+            if inferred and inferred > 0:
+                return int(inferred)
+            return _fallback_price(item_key)
+        except Exception:
+            return 3000  # 최후 fallback
 
     df["avg_price"]         = df.apply(_retail, axis=1)
     df["market_price"]      = (df["avg_price"] * 0.92).astype(int)

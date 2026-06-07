@@ -136,7 +136,9 @@ def items_db():
                 price      = float(inferred)
                 price_type = "AI추론"
             else:
-                continue   # 가격 없으면 목록에서 제외
+                # AI도 실패 → fallback 기본가 (0원은 절대 없음)
+                price      = float(_fallback_price(item_key))
+                price_type = "AI추론~"
 
         # 소분 단위/가격 변환
         try:
