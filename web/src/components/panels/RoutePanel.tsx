@@ -67,9 +67,8 @@ export function RoutePanel() {
   }, [routePlans, lat, lng, travelMode]);
 
   function handleChoose(key: string) {
-    const sel = routeChoice === key;
-    setRouteChoice(sel ? null : key);
-    setMapboxRoute(sel ? null : (mbRoutes[key] ?? null));
+    setRouteChoice(key);
+    setMapboxRoute(mbRoutes[key] ?? null);
   }
 
   const strategies = Object.keys(routePlans);
@@ -355,7 +354,7 @@ export function RoutePanel() {
           transition: "background 400ms ease, opacity 350ms ease",
         }}
       >
-        {routeChoice ? `🗺️ ${routeChoice} 경로로 장보기 시작` : "🚶 경로를 선택해 주세요"}
+        {routeChoice ? `🗺️ ${routeChoice} 경로로 장보기 시작 →` : "위 경로 중 하나를 선택하세요"}
       </button>
     </div>
   );
