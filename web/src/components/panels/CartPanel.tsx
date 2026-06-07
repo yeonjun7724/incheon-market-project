@@ -22,6 +22,7 @@ export function CartPanel() {
   const [search, setSearch]             = useState("");
   const [quantities, setQuantities]     = useState<Record<string, number>>({});
   const [routeLoading, setRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState<string | null>(null);
 
   useEffect(() => { getDbItems().then(setDbItems).catch(console.error); }, []);
 
@@ -34,8 +35,10 @@ export function CartPanel() {
       const missing = picked.filter((key) => {
         const inDb        = dbItems.some((i) => i.item_key === key || i.name === key);
         const inInferred  = key in inferredRef.current;
+        const inferredPrice = inferredRef.current[key]?.price ?? -1;
         const isInferring = inferring.has(key);
-        return !inDb && !inInferred && !isInferring;
+        // DB 없고, 추론 안 됐거나 가격 0인 항목 재시도
+        return !inDb && (!inInferred || inferredPrice === 0) && !isInferring;
       });
       if (!missing.length) return;
 
@@ -94,23 +97,31 @@ export function CartPanel() {
   async function goRoute() {
     if (!picked.length) return;
     setRouteLoading(true);
+    setRouteError(null);
     try {
       const plans = await recommendRoutes({
         ingredients: picked, lat, lng, radius: radiusM,
         budget, household, pref, use_market: useMarket,
       });
       if (!plans || Object.keys(plans).length === 0) {
-        alert("반경 내 해당 재료를 취급하는 가게가 없어요. 반경을 늘려보세요.");
+        // 주변에서 구할 수 없는 재료 안내
+        const unavailable = picked.filter((k) => {
+          const m = meta(k);
+          return !m || m.price === 0;
+        });
+        if (unavailable.length > 0) {
+          setRouteError(`주변에서 구하기 어려운 재료예요: ${unavailable.join(", ")}\n해당 재료를 빼거나 반경을 늘려보세요.`);
+        } else {
+          setRouteError("반경 내 해당 재료를 취급하는 가게가 없어요.\n조건 탭에서 반경을 늘려보세요.");
+        }
         return;
       }
-      // state 업데이트 순서 보장: plans 먼저 저장 후 패널 전환
       setRouteChoice(null);
       setRoutePlans(plans);
-      // 다음 렌더 사이클에 패널 전환 — hasRoutes가 true로 평가된 뒤 실행
       setTimeout(() => setPanel("stores"), 0);
     } catch (e) {
       console.error("경로 추천 실패:", e);
-      alert("경로 계산 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.");
+      setRouteError("경로 계산 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.");
     } finally { setRouteLoading(false); }
   }
 
@@ -281,6 +292,15 @@ export function CartPanel() {
               </div>
             </div>
 
+            {routeError && (
+              <div className="rounded-2xl px-4 py-3 text-[13px] leading-relaxed"
+                style={{ background: "rgba(230,57,70,0.08)", border: "1px solid rgba(230,57,70,0.20)", color: "#e63946" }}>
+                <div className="font-bold mb-1">🔍 경로를 찾지 못했어요</div>
+                {routeError.split("\n").map((line, i) => <div key={i}>{line}</div>)}
+                <button onClick={() => setRouteError(null)}
+                  className="mt-2 text-[11px] underline opacity-60">닫기</button>
+              </div>
+            )}
             <button onClick={goRoute} disabled={routeLoading}
               className="w-full rounded-2xl bg-[#0077b6]/20 border border-[#0077b6]/30
                          py-4 text-[15px] font-bold text-[#0077b6]

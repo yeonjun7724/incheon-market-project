@@ -297,8 +297,14 @@ def ask_agent(query: str) -> tuple[str | None, list[str]]:
             dish = obj.get("dish")
             raw_ings = obj.get("ingredients", [])
             if dish and isinstance(raw_ings, list) and len(raw_ings) >= 2:
-                # DB item_key로 정규화
-                ings = [_normalize_ingredient(i) for i in raw_ings]
+                # DB item_key로 정규화 + 중복 제거
+                seen = set()
+                ings = []
+                for i in raw_ings:
+                    key = _normalize_ingredient(i)
+                    if key not in seen:
+                        seen.add(key)
+                        ings.append(key)
                 return dish, ings
         except Exception:
             pass
