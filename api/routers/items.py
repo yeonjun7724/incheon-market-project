@@ -155,6 +155,7 @@ from pydantic import BaseModel
 
 class InferReq(BaseModel):
     names: list[str]
+    household: int = 2
 
 
 def _infer_ingredient_full(item_key: str) -> dict | None:
@@ -227,7 +228,7 @@ def infer_items(req: InferReq):
             base_price = int(r.get("avg_price", 0))
             if base_price > 0:
                 base_unit = r.get("unit", "원/kg")
-                unit, price = cooking_price(key, base_price, base_unit)
+                unit, price = cooking_price(key, base_price, base_unit, req.household)
                 result[raw_name] = {
                     "item_key": key, "name": key,
                     "category": r.get("category", "기타"), "price": price,
@@ -238,7 +239,7 @@ def infer_items(req: InferReq):
 
         if key in EXTRA_ITEMS:
             ei = EXTRA_ITEMS[key]
-            unit, price = cooking_price(key, ei[2], ei[1])
+            unit, price = cooking_price(key, ei[2], ei[1], req.household)
             result[raw_name] = {
                 "item_key": key, "name": key,
                 "category": ei[0], "price": price,
@@ -249,7 +250,7 @@ def infer_items(req: InferReq):
 
         info = _infer_ingredient_full(key)
         if info and info["price"] > 0:
-            unit, price = cooking_price(key, info["price"], info["unit"])
+            unit, price = cooking_price(key, info["price"], info["unit"], req.household)
             result[raw_name] = {
                 "item_key": key, "name": key,
                 "category": info["category"], "price": price,

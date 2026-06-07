@@ -37,7 +37,7 @@ export function CartPanel() {
     if (!missing.length) return;
 
     setInferring((prev) => new Set([...prev, ...missing]));
-    inferItemPrices(missing)
+    inferItemPrices(missing, household)
       .then((res) => {
         inferredRef.current = { ...inferredRef.current, ...res };
         setInferredMap((prev) => ({ ...prev, ...res }));

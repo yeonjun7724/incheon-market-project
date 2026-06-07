@@ -84,6 +84,11 @@ EXTRA_ITEMS: dict[str, tuple] = {
     "간장":     ("양념",     "200ml", 2000,  1800,  2200,  "🫙"),
     "고추장":   ("양념",     "150g",  3000,  2700,  3300,  "🌶️"),
     "애호박":   ("채소",     "1개",   1500,  1300,  1700,  "🥬"),
+    "생강":     ("양념",     "50g",    800,   700,   900,  "🫚"),
+    "청양고추": ("채소",     "5개",    800,   700,   900,  "🌶️"),
+    "물엿":     ("양념",     "200ml", 1500,  1300,  1700,  "🍯"),
+    "식초":     ("양념",     "200ml", 1500,  1300,  1700,  "🫙"),
+    "설탕":     ("양념",     "200g",  1000,   900,  1100,  "🍚"),
 }
 
 # ──────────────────────────────────────────────────────────────
@@ -91,42 +96,68 @@ EXTRA_ITEMS: dict[str, tuple] = {
 #   ratio = 실제 구매량 / DB 포장 단위
 #   예) 양파 DB=1kg, 요리에는 200g → ratio=0.2
 # ──────────────────────────────────────────────────────────────
-COOKING_UNIT: dict[str, tuple] = {
-    "양파":              ("1개(200g)",    0.20),
-    "대파":              ("1/2단",        0.50),
-    "감자":              ("2개(400g)",    0.40),
-    "배추":              ("1/4포기",      0.25),
-    "시금치":            ("200g",         1.00),
-    "콩나물":            ("200g",         1.00),
-    "애호박":            ("1개",          1.00),
-    "고구마":            ("2개(400g)",    0.40),
-    "돼지고기앞다리":    ("300g",         3.00),
-    "닭가슴살":          ("300g",         3.00),
-    "계란":              ("6개",          0.20),
-    "두부":              ("300g",         1.00),
-    "쌀":                ("2인분(400g)", 0.40),
-    "사과":              ("1개",          0.33),
-    "바나나":            ("1/2송이",      0.50),
-    "마늘":              ("100g",         1.00),
-    "생강":              ("50g",          0.50),
-    "고춧가루":          ("100g",         1.00),
-    "미역":              ("50g",          1.00),
-    "된장":              ("150g",         0.30),
-    "참기름":            ("50ml",         0.28),
-    "간장":              ("200ml",        1.00),
-    "고추장":            ("150g",         0.30),
-    "당면":              ("300g",         1.00),
-    "두유":              ("2팩",          0.33),
-}
+# ──────────────────────────────────────────────────────────────
+# 재료별 소분 단위/가격 AI 추론 (캐시 포함)
+# ──────────────────────────────────────────────────────────────
+_COOKING_UNIT_CACHE: dict[str, dict] = {}
 
 
-def cooking_price(item_key: str, base_price: int, base_unit: str) -> tuple:
-    """적정 구매 단위와 조정된 가격 반환."""
-    if item_key in COOKING_UNIT:
-        display_unit, ratio = COOKING_UNIT[item_key]
-        adjusted = max(100, round(base_price * ratio / 100) * 100)
-        return display_unit, adjusted
-    return base_unit, base_price
+def _infer_cooking_unit(item_key: str, db_price: int, db_unit: str, household: int = 2) -> dict:
+    """
+    재료명·DB단위·인원수 → 1회 요리 적정 구매단위·가격 AI 추론.
+    캐시 키: item_key (인원수 무관, 2인분 기준 고정)
+    실패 시 원본 반환.
+    """
+    if item_key in _COOKING_UNIT_CACHE:
+        cached = _COOKING_UNIT_CACHE[item_key]
+        # 인원수 비례 가격 조정 (2인 기준으로 저장)
+        scale = max(1, household) / 2.0
+        return {
+            "unit":  cached["unit"],
+            "price": max(100, round(cached["price"] * scale / 100) * 100),
+        }
+
+    result = _call_openai(
+        system=(
+            "당신은 한국 요리 전문가이자 식품 가격 전문가입니다. "
+            "재료명과 현재 DB 가격/단위를 주면, 가정에서 2인분 요리 1회에 필요한 "
+            "적정 구매 단위와 그에 맞는 가격을 JSON으로 답하세요. "
+            "예: 양파 DB=1kg/2200원 → {"unit": "1개(200g)", "price": 440} "
+            "예: 생강 DB=1kg/8000원 → {"unit": "50g", "price": 400} "
+            "예: 계란 DB=30개/7200원 → {"unit": "6개", "price": 1440} "
+            "예: 대파 DB=1단/2500원 → {"unit": "1/3단", "price": 830} "
+            "규칙: 양념류(간장·된장·고추장·참기름 등)는 1회 사용량 기준, "
+            "채소는 실제 1~2인 요리에 쓰는 양, 육류는 1인 150g 기준. "
+            "단위는 한국어로 간결하게. 가격은 정수(원)."
+            "형식: {"unit": "단위", "price": 숫자}"
+        ),
+        user=f"재료: {item_key}, DB단위: {db_unit}, DB가격: {db_price}원",
+        max_tokens=80,
+    )
+
+    if result:
+        try:
+            obj = json.loads(result)
+            unit  = str(obj.get("unit", db_unit))
+            price = int(obj.get("price", db_price))
+            if unit and 50 <= price <= 200000:
+                _COOKING_UNIT_CACHE[item_key] = {"unit": unit, "price": price}
+                scale = max(1, household) / 2.0
+                return {
+                    "unit":  unit,
+                    "price": max(100, round(price * scale / 100) * 100),
+                }
+        except Exception:
+            pass
+
+    # 폴백: 원본 반환
+    return {"unit": db_unit, "price": db_price}
+
+
+def cooking_price(item_key: str, base_price: int, base_unit: str, household: int = 2) -> tuple:
+    """재료 소분 단위/가격 반환. AI 추론 우선, 실패 시 원본."""
+    result = _infer_cooking_unit(item_key, base_price, base_unit, household)
+    return result["unit"], result["price"]
 
 
 def _normalize_ingredient(name: str) -> str:
@@ -343,7 +374,7 @@ def _haversine(la1, lo1, la2, lo2) -> float:
 
 
 def _assign_items(ingredients: list[str], items_df: pd.DataFrame,
-                  stores_df: pd.DataFrame) -> dict[str, dict]:
+                  stores_df: pd.DataFrame, household: int = 2) -> dict[str, dict]:
     """
     각 가게가 커버할 수 있는 재료를 매핑.
     ingredients: DB item_key 기준 재료명 리스트.
@@ -407,19 +438,19 @@ def _assign_items(ingredients: list[str], items_df: pd.DataFrame,
                 base_price = store_item_price(store_id, store["type"], row)
                 emoji = row.get("emoji", "🛒")
                 base_unit = row.get("unit", "")
-                unit, price = cooking_price(ing, base_price, base_unit)
+                unit, price = cooking_price(ing, base_price, base_unit, household)
             elif ing in EXTRA_ITEMS:
                 ei = EXTRA_ITEMS[ing]
                 factor = _TYPE_FACTOR.get(store["type"], 1.0)
                 base_price = round(ei[2] * factor / 100) * 100
-                unit, price = cooking_price(ing, base_price, ei[1])
+                unit, price = cooking_price(ing, base_price, ei[1], household)
                 emoji = ei[5]
             else:
                 # DB에도 EXTRA에도 없는 품목: OpenAI로 가격 추론
                 raw_price = _infer_item_price_ai(ing)
                 factor = _TYPE_FACTOR.get(store["type"], 1.0)
                 base_price = max(100, round(raw_price * factor / 100) * 100)
-                unit, price = cooking_price(ing, base_price, "")
+                unit, price = cooking_price(ing, base_price, "", household)
                 emoji = "🛒"
 
             matched_ings.append((ing, price, emoji, unit))
@@ -550,7 +581,7 @@ def recommend_routes(ingredients: list[str], items_df: pd.DataFrame,
     if nearby.empty:
         return {}
 
-    assignments = _assign_items(ingredients, items_df, nearby)
+    assignments = _assign_items(ingredients, items_df, nearby, household)
     if not assignments:
         return {}
 
