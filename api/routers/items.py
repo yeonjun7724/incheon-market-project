@@ -137,6 +137,10 @@ def items_db():
             else:
                 continue   # 가격 없으면 목록에서 제외
 
+        # 소분 단위/가격 변환
+        from core.recipes import cooking_price as _cp
+        unit, price = _cp(item_key, int(price), unit)
+
         result.append({
             "item_key":   item_key,
             "name":       item_key,
