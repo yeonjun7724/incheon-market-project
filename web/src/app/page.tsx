@@ -104,7 +104,7 @@ function RouteSidebar({
 
       {/* 사이드바 본체 */}
       <div
-        className={`fixed left-3 top-16 bottom-[88px] z-[500] w-72 flex flex-col
+        className={`fixed left-3 top-16 bottom-[88px] z-[500] w-80 flex flex-col
                     rounded-3xl shadow-2xl overflow-hidden
                     transition-all duration-300
                     ${collapsed

@@ -4,7 +4,7 @@ import { useApp } from "@/lib/store";
 import { getBuyingTip } from "@/lib/api";
 
 export function ChecklistPanel() {
-  const { routePlans, routeChoice, setRouteChoice, setPanel, toggleFavStore, favStores } = useApp();
+  const { routePlans, routeChoice, setRouteChoice, setPanel, toggleFavStore, favStores, picked } = useApp();
   const [bought, setBought] = useState<Record<string, boolean>>({});
   const [open, setOpen] = useState<Record<string, boolean>>({});       // 상점 아코디언
   const [tip, setTip] = useState<{ name: string; tips: string[] } | null>(null);
@@ -26,6 +26,12 @@ export function ChecklistPanel() {
 
   const plan = routePlans[routeChoice];
   const grandTotal = Object.values(plan.by_store).flatMap((s) => s.items).reduce((sum, it) => sum + it.price, 0);
+
+  // 경로에 포함되지 않은 재료 (가게를 찾지 못한 항목)
+  const coveredNames = new Set(
+    Object.values(plan.by_store).flatMap((s) => s.items.map((it) => it.name))
+  );
+  const uncovered = picked.filter((name) => !coveredNames.has(name));
   const boughtTotal = Object.entries(plan.by_store)
     .flatMap(([sid, s]) => s.items.map((it) => ({ key: `${sid}::${it.name}`, p: it.price })))
     .filter((x) => bought[x.key]).reduce((sum, x) => sum + x.p, 0);
@@ -107,6 +113,42 @@ export function ChecklistPanel() {
           </div>
         );
       })}
+
+      {/* 그 외 — 경로에 포함되지 않은 재료 */}
+      {uncovered.length > 0 && (
+        <div className="rounded-lg border border-[#1a2233]/10 bg-white/[0.03]">
+          <div className="px-3 py-2.5 flex items-center gap-2"
+            style={{ borderBottom: "1px solid rgba(26,34,51,0.07)" }}>
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#8a96b0]/20 text-xs font-extrabold text-[#8a96b0]">?</span>
+            <span className="flex-1 text-[14px] font-extrabold text-[#4a5a78]">그 외 · 직접 구매 필요</span>
+            <span className="text-[11px] text-[#8a96b0]">가게 정보 없음</span>
+          </div>
+          <div className="px-3 pb-2">
+            <div className="mb-1.5 text-[11px] text-[#8a96b0] pt-2">
+              아래 재료는 근처 가게 데이터가 없어 경로에 포함되지 않았습니다. 직접 구매하세요.
+            </div>
+            {uncovered.map((name) => {
+              const key = `uncovered::${name}`;
+              const done = !!bought[key];
+              return (
+                <div key={key} className="flex items-center gap-2 border-t border-[#1a2233]/5 py-2">
+                  <span>🛒</span>
+                  <span className={`flex-1 text-[13px] ${done ? "text-ink3 line-through" : "text-[#1a2233]"}`}>
+                    {name}
+                  </span>
+                  <button
+                    onClick={() => setBought((b) => ({ ...b, [key]: !b[key] }))}
+                    title="샀으면 체크"
+                    className={`flex h-6 w-6 items-center justify-center rounded-md border text-xs
+                      ${done ? "border-accent3/50 bg-accent3/15 text-accent3" : "border-white/15 text-ink3"}`}>
+                    {done ? "✓" : "○"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2">
         <button onClick={() => setPanel("report")}

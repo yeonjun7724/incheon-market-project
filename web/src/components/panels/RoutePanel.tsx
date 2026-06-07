@@ -108,8 +108,21 @@ export function RoutePanel() {
     </div>
   );
 
+  // 3전략이 동일한 단일 상점으로 수렴했는지 감지
+  const allSameStore = strategies.length === 3 && strategies.every((k) => {
+    const s = routePlans[k];
+    return s?.stops?.length === 1 && s.stops[0].id === routePlans[strategies[0]]?.stops?.[0]?.id;
+  });
+
   return (
     <div className="space-y-3 pb-2">
+      {allSameStore && (
+        <div className="rounded-xl px-3 py-2.5 text-[12px]"
+          style={{ background: "rgba(26,34,51,0.05)", border: "1px solid rgba(26,34,51,0.10)" }}>
+          <p className="font-semibold text-[#4a5a78]">ℹ️ 반경 내 모든 재료를 커버하는 가게가 한 곳뿐이에요.</p>
+          <p className="text-[#8a96b0] mt-0.5">탐색 반경을 늘리거나 조건 탭에서 반경을 조정하면 더 다양한 경로가 나타납니다.</p>
+        </div>
+      )}
       {loadingMb && (
         <div className="flex items-center gap-2 rounded-xl px-3 py-2"
           style={{ background: "rgba(0,119,182,0.07)", border: "1px solid rgba(0,119,182,0.15)" }}>
@@ -159,24 +172,25 @@ export function RoutePanel() {
               }
             </div>
 
-            {/* 지표 — 4열 가로 나열, 줄바꿈 절대 없음 */}
-            <div className="grid grid-cols-4 gap-1.5">
+            {/* 지표 — 2×2 그리드 */}
+            <div className="grid grid-cols-2 gap-1.5">
               {[
-                { v: p.budget.toLocaleString(), unit: "원", l: "예산" },
-                { v: distKm,                    unit: "km",  l: "거리" },
-                { v: String(walkMin),           unit: "분",  l: mb ? "실측" : "추정" },
-                { v: String(totalMin),          unit: "분",  l: "총소요" },
+                { v: p.budget.toLocaleString(), unit: "원", l: "예상 예산" },
+                { v: distKm,                    unit: "km",  l: "총 거리" },
+                { v: String(walkMin),           unit: "분",  l: mb ? "도보(실측)" : "도보(추정)" },
+                { v: String(totalMin),          unit: "분",  l: "총 소요시간" },
               ].map(({ v, unit, l }) => (
-                <div key={l} className="rounded-xl text-center py-2 px-1"
+                <div key={l} className="rounded-xl flex items-center gap-2.5 py-2.5 px-3"
                   style={{ background: sel ? `${s.color}10` : "rgba(26,34,51,0.04)" }}>
-                  {/* 숫자+단위 한 줄 고정 */}
-                  <div className="flex items-baseline justify-center gap-[1px] whitespace-nowrap overflow-hidden">
-                    <span className="text-[13px] font-black font-mono leading-none"
-                      style={{ color: sel ? s.color : "#1a2233" }}>{v}</span>
-                    <span className="text-[10px] font-bold leading-none"
-                      style={{ color: sel ? s.color : "#8a96b0" }}>{unit}</span>
+                  <div>
+                    <div className="flex items-baseline gap-[2px]">
+                      <span className="text-[15px] font-black font-mono"
+                        style={{ color: sel ? s.color : "#1a2233" }}>{v}</span>
+                      <span className="text-[11px] font-bold"
+                        style={{ color: sel ? s.color : "#8a96b0" }}>{unit}</span>
+                    </div>
+                    <div className="text-[10px] text-[#8a96b0] mt-0.5">{l}</div>
                   </div>
-                  <div className="text-[9px] text-[#8a96b0] mt-0.5 whitespace-nowrap">{l}</div>
                 </div>
               ))}
             </div>
