@@ -202,7 +202,7 @@ def get_store_items(store_id: str) -> dict:
         cached = _STORE_ITEM_CACHE[store_id]
         return {"items": cached["items"], "source": cached["source"],
                 "prices": cached.get("prices", {})}
-    return {}
+    return {"items": [], "source": "none", "prices": {}}
 
 
 _STORE_AI_CACHE: dict[str, list[str]] = {}

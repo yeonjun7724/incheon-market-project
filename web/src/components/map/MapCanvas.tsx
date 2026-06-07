@@ -192,10 +192,10 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
           {/* 헤일로 링 */}
           <Layer id="cluster-ring" type="circle" filter={["has", "point_count"]}
             paint={{
-              "circle-color": "rgba(0,119,182,0.08)",
-              "circle-radius": ["step", ["get", "point_count"], 26, 10, 34, 30, 44],
-              "circle-stroke-width": 0,
-              "circle-stroke-color": "rgba(0,0,0,0)",
+              "circle-color": "rgba(0,119,182,0.10)",
+              "circle-radius": ["step", ["get", "point_count"], 30, 10, 39, 30, 50],
+              "circle-stroke-width": 1,
+              "circle-stroke-color": "rgba(0,119,182,0.18)",
             }}
           />
           {/* 채움 원 — 개수에 따라 밝은→진한 블루 */}
@@ -239,7 +239,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
                 "대형유통",   "rgba(45,158,95,0.13)",
                 "rgba(80,80,80,0.13)"],
               "circle-radius": 16,
-              "circle-stroke-width": 0,
+              "circle-stroke-width": 1,
               "circle-stroke-color": ["match", ["get", "type"],
                 "전통시장",   "rgba(0,119,182,0.20)",
                 "골목상권",   "rgba(247,127,0,0.20)",
