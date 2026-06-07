@@ -175,8 +175,10 @@ def _infer_ingredient_full(item_key: str) -> dict | None:
                     "content": (
                         "당신은 한국 식품 가격 전문가입니다. "
                         "재료명을 주면 한국 일반 마트/시장 기준의 가격 정보를 JSON으로 답하세요. "
+                        "단위는 실제 요리 1~2인분에 사용하는 소량 기준으로 답하세요 "
+                        "(예: 꽃게→1마리, 생강→50g, 마늘→100g, 양파→1개, 대파→1/2단). "
                         '형식: {"price": 숫자, "unit": "단위문자열", "category": "카테고리"} '
-                        '예: {"price": 15000, "unit": "원/kg", "category": "축산물"}'
+                        '예: {"price": 8000, "unit": "1마리(500g)", "category": "수산물"}'
                     ),
                 },
                 {"role": "user", "content": f"재료명: {item_key}"},
@@ -212,37 +214,43 @@ def infer_items(req: InferReq):
 
     result: dict[str, dict] = {}
 
+    from core.recipes import cooking_price
+
     for raw_name in req.names:
         key = normalize_ingredient(raw_name)
 
         if key in db_by_key:
             r = db_by_key[key]
-            price = int(r.get("avg_price", 0))
-            if price > 0:
+            base_price = int(r.get("avg_price", 0))
+            if base_price > 0:
+                base_unit = r.get("unit", "원/kg")
+                unit, price = cooking_price(key, base_price, base_unit)
                 result[raw_name] = {
                     "item_key": key, "name": key,
                     "category": r.get("category", "기타"), "price": price,
-                    "unit": r.get("unit", "원/kg"), "price_type": "DB",
+                    "unit": unit, "price_type": "DB",
                     "emoji": r.get("emoji", EMOJI_MAP.get(key, "🛒")),
                 }
                 continue
 
         if key in EXTRA_ITEMS:
             ei = EXTRA_ITEMS[key]
+            unit, price = cooking_price(key, ei[2], ei[1])
             result[raw_name] = {
                 "item_key": key, "name": key,
-                "category": ei[0], "price": ei[2],
-                "unit": ei[1], "price_type": "참조가",
+                "category": ei[0], "price": price,
+                "unit": unit, "price_type": "참조가",
                 "emoji": ei[5],
             }
             continue
 
         info = _infer_ingredient_full(key)
         if info and info["price"] > 0:
+            unit, price = cooking_price(key, info["price"], info["unit"])
             result[raw_name] = {
                 "item_key": key, "name": key,
-                "category": info["category"], "price": info["price"],
-                "unit": info["unit"], "price_type": "AI추론",
+                "category": info["category"], "price": price,
+                "unit": unit, "price_type": "AI추론",
                 "emoji": EMOJI_MAP.get(key, "🛒"),
             }
         else:
