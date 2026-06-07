@@ -1,6 +1,6 @@
 import type {
   Store, Item, DbItem, Recipe, BasketResult, RoutePlans, Report,
-  RouteWithMapbox, ReceiptScanResult,
+  RouteWithMapbox, ReceiptScanResult, MealRecommendationResult,
 } from "./types";
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
@@ -45,6 +45,12 @@ export const getBuyingTip = (name: string) =>
 export const optimizeBasket = (body: {
   budget: number; household: number; pref?: string; use_market?: boolean;
 }) => api<BasketResult>("/basket/optimize", { method: "POST", body: JSON.stringify(body) });
+
+export const recommendMeals = (body: {
+  pref: string; budget: number; household: number;
+}) => api<MealRecommendationResult>("/basket/meal-recommendations", {
+  method: "POST", body: JSON.stringify(body),
+});
 
 export const recommendRoutes = (body: {
   ingredients: string[]; lat: number; lng: number; radius?: number;
