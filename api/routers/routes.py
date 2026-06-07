@@ -22,16 +22,24 @@ class RouteReq(BaseModel):
 
 
 def _store_row(sr) -> dict:
-    # stops 는 namedtuple(itertuples), by_store["row"] 는 pandas Series → 타입별 접근
     if isinstance(sr, pd.Series):
         g = lambda k: sr[k] if k in sr.index else None
     elif isinstance(sr, dict):
         g = lambda k: sr.get(k)
-    else:  # namedtuple
+    else:
         g = lambda k: getattr(sr, k, None)
+    try:
+        lat = float(g("lat")) if g("lat") is not None else 0.0
+        lng = float(g("lng")) if g("lng") is not None else 0.0
+    except (TypeError, ValueError):
+        lat, lng = 0.0, 0.0
     return {
-        "id": g("id"), "name": g("name"), "type": g("type"),
-        "gu": g("gu"), "lat": float(g("lat")), "lng": float(g("lng")),
+        "id":   str(g("id") or ""),
+        "name": str(g("name") or ""),
+        "type": str(g("type") or ""),
+        "gu":   str(g("gu") or ""),
+        "lat":  lat,
+        "lng":  lng,
     }
 
 

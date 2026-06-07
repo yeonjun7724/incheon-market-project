@@ -159,7 +159,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
             const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 48 48">
               <circle cx="24" cy="24" r="21" fill="${color}" opacity="0.18"/>
               <circle cx="24" cy="24" r="15" fill="${color}"/>
-              <circle cx="24" cy="24" r="15" fill="none" stroke="white" stroke-width="2.5"/>
+              <circle cx="24" cy="24" r="15" fill="none" stroke="white" stroke-width="1.5"/>
               <text x="24" y="29" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="14" fill="white">${symbol}</text>
             </svg>`;
             const img = new Image(size, size);
@@ -194,8 +194,8 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
             paint={{
               "circle-color": "rgba(0,119,182,0.13)",
               "circle-radius": ["step", ["get", "point_count"], 36, 10, 46, 30, 58],
-              "circle-stroke-width": 1.5,
-              "circle-stroke-color": "rgba(0,119,182,0.28)",
+              "circle-stroke-width": 1,
+              "circle-stroke-color": "rgba(0,119,182,0.22)",
             }}
           />
           {/* 채움 원 — 개수에 따라 밝은→진한 블루 */}
@@ -209,7 +209,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
                 "#023e8a",
               ],
               "circle-radius": ["step", ["get", "point_count"], 20, 5, 26, 10, 32, 30, 40],
-              "circle-stroke-width": 3,
+              "circle-stroke-width": 2,
               "circle-stroke-color": "#ffffff",
             }}
           />
@@ -241,11 +241,11 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
               "circle-radius": 20,
               "circle-stroke-width": 1.5,
               "circle-stroke-color": ["match", ["get", "type"],
-                "전통시장",   "rgba(0,119,182,0.28)",
-                "골목상권",   "rgba(247,127,0,0.28)",
-                "동네식품점", "rgba(123,45,139,0.28)",
-                "대형유통",   "rgba(45,158,95,0.28)",
-                "rgba(80,80,80,0.20)"],
+                "전통시장",   "rgba(0,119,182,0.20)",
+                "골목상권",   "rgba(247,127,0,0.20)",
+                "동네식품점", "rgba(123,45,139,0.20)",
+                "대형유통",   "rgba(45,158,95,0.20)",
+                "rgba(80,80,80,0.15)"],
             }}
           />
           {/* 마커 본체 — SVG 이미지 (M/G/N/S 알파벳으로 업종 표시) */}

@@ -317,7 +317,7 @@ def _assign_items(ingredients: list[str], items_df: pd.DataFrame,
     result: dict[str, dict] = {}
     for _, store in stores_df.iterrows():
         store_id = store["id"]
-        store_info = get_store_items(store_id, store["name"])
+        store_info = get_store_items(store_id)
         carried = store_info["items"]
 
         matched_ings = []
@@ -383,7 +383,11 @@ def _build_plan(ingredients: list[str], store_assignments: dict,
     if not stops:
         return None
 
-    coords = [(origin[0], origin[1])] + [(s["lat"], s["lng"]) for s in stops]
+    coords = [(origin[0], origin[1])] + [
+        (float(s["lat"]) if isinstance(s, dict) else float(s["lat"]),
+         float(s["lng"]) if isinstance(s, dict) else float(s["lng"]))
+        for s in stops
+    ]
     dist = sum(
         _haversine(coords[i][0], coords[i][1], coords[i+1][0], coords[i+1][1])
         for i in range(len(coords) - 1)
