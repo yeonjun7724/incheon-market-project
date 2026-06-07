@@ -26,30 +26,42 @@ export function CartPanel() {
   useEffect(() => { getDbItems().then(setDbItems).catch(console.error); }, []);
 
   // DB에 없는 재료 → AI 가격 추론
+  // dbItems 로드 완료 후 + picked 변경 시 모두 실행
   useEffect(() => {
-    if (!picked.length || !dbItems.length) return;
-    const missing = picked.filter((key) => {
-      const inDb        = dbItems.some((i) => i.item_key === key || i.name === key);
-      const inInferred  = key in inferredRef.current;
-      const isInferring = inferring.has(key);
-      return !inDb && !inInferred && !isInferring;
-    });
-    if (!missing.length) return;
-
-    setInferring((prev) => new Set([...prev, ...missing]));
-    inferItemPrices(missing, household)
-      .then((res) => {
-        inferredRef.current = { ...inferredRef.current, ...res };
-        setInferredMap((prev) => ({ ...prev, ...res }));
-      })
-      .catch(console.error)
-      .finally(() => {
-        setInferring((prev) => {
-          const next = new Set(prev);
-          missing.forEach((k) => next.delete(k));
-          return next;
-        });
+    if (!picked.length) return;
+    // dbItems 로딩 중이면 잠시 대기 (최대 100ms)
+    const run = () => {
+      const missing = picked.filter((key) => {
+        const inDb        = dbItems.some((i) => i.item_key === key || i.name === key);
+        const inInferred  = key in inferredRef.current;
+        const isInferring = inferring.has(key);
+        return !inDb && !inInferred && !isInferring;
       });
+      if (!missing.length) return;
+
+      setInferring((prev) => new Set([...prev, ...missing]));
+      inferItemPrices(missing, household)
+        .then((res) => {
+          inferredRef.current = { ...inferredRef.current, ...res };
+          setInferredMap((prev) => ({ ...prev, ...res }));
+        })
+        .catch(console.error)
+        .finally(() => {
+          setInferring((prev) => {
+            const next = new Set(prev);
+            missing.forEach((k) => next.delete(k));
+            return next;
+          });
+        });
+    };
+
+    if (dbItems.length > 0) {
+      run();
+    } else {
+      // dbItems 아직 로딩 중 — 300ms 후 재시도
+      const t = setTimeout(run, 300);
+      return () => clearTimeout(t);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [picked, dbItems]);
 
