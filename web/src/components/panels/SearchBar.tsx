@@ -4,7 +4,7 @@ import { useApp } from "@/lib/store";
 import { getRecipe, getItems, getStores } from "@/lib/api";
 
 export function SearchBar() {
-  const { setRecipe, setPanel, togglePick, picked, setLoc } = useApp();
+  const { setRecipe, setPanel, togglePick, picked, setLoc, clearCart } = useApp();
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
@@ -17,6 +17,8 @@ export function SearchBar() {
     try {
       const rc = await getRecipe(query);
       if (rc.dish) {
+        // 새 검색 → 장바구니·경로 초기화
+        clearCart();
         setHint(`🍳 ${rc.dish} 재료 ${rc.ingredients.length}종`);
         setRecipe(rc.dish, rc.ingredients);
         setPanel("cart");
@@ -54,7 +56,7 @@ export function SearchBar() {
       style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}>
       <div className="flex items-center gap-2"
         style={{
-          background: "rgba(255,255,255,0.95)",
+          background: "rgba(255,255,255,0.97)",
           backdropFilter: "blur(20px)",
           border: "1px solid rgba(26,34,51,0.12)",
           borderRadius: 999,

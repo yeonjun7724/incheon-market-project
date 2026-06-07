@@ -21,6 +21,7 @@ const MapCanvas = dynamic(() => import("@/components/map/MapCanvas"), { ssr: fal
 const TITLES: Record<string, string> = {
   search:    "⚙️ 장보기 조건",
   cart:      "🛍️ 장바구니",
+  stores:    "🏪 추천 경로",
   checklist: "🧾 체크리스트",
   report:    "📝 가격 제보",
   favorites: "⭐ 즐겨찾기",

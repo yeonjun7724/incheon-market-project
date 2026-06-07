@@ -35,6 +35,7 @@ interface AppState {
   togglePick: (n: string) => void;
   toggleFavItem: (n: string) => void;
   toggleFavStore: (id: string) => void;
+  clearCart: () => void;
 
   // AI 에이전트 / 경로
   recipeDish: string | null;
@@ -94,6 +95,7 @@ export const useApp = create<AppState>((set) => ({
   toggleFavStore: (id) => set((s) => ({
     favStores: s.favStores.includes(id) ? s.favStores.filter((x) => x !== id) : [...s.favStores, id],
   })),
+  clearCart: () => set({ picked: [], routePlans: {}, routeChoice: null, mapboxRoute: null, allMapboxRoutes: {}, recipeDish: null, recipeIngs: [] }),
 
   recipeDish: null,
   recipeIngs: [],

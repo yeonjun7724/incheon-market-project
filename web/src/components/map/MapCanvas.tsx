@@ -21,6 +21,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
   const [tooltip, setTooltip] = useState<Tooltip | null>(null);
   const [fetchKey, setFetchKey] = useState(0);
   const mapRef = useRef<MapRef | null>(null);
+  const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const dashOffsetRef = useRef(0);
   const isDark = mapStyle.includes("dark");
@@ -242,15 +243,40 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
     setLoc(e.lngLat.lat, e.lngLat.lng);
   }
 
+  // 모바일 더블탭 → 위치이동 (touchend 기반)
+  function handleTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    const now = Date.now();
+    const last = lastTapRef.current;
+    if (last && now - last.time < 350 &&
+        Math.abs(touch.clientX - last.x) < 30 &&
+        Math.abs(touch.clientY - last.y) < 30) {
+      // 더블탭 확인 → 지도 좌표로 변환
+      const map = mapRef.current?.getMap();
+      if (!map) return;
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const lngLat = map.unproject([touch.clientX - rect.left, touch.clientY - rect.top]);
+      setLoc(lngLat.lat, lngLat.lng);
+      lastTapRef.current = null;
+    } else {
+      lastTapRef.current = { time: now, x: touch.clientX, y: touch.clientY };
+    }
+  }
+
   return (
     <>
+      <div
+        style={{ position: "fixed", inset: 0 }}
+        onTouchEnd={handleTouchEnd}
+      >
       <Map
         id="main"
         ref={mapRef}
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
         initialViewState={{ longitude: lng, latitude: lat, zoom: 13 }}
         mapStyle={mapStyle}
-        style={{ position: "fixed", inset: 0, width: "100vw", height: "100vh" }}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
         interactiveLayerIds={["clusters", "cluster-ring", "unclustered-bg", "unclustered"]}
         onClick={handleClick}
         onDblClick={handleDblClick}
