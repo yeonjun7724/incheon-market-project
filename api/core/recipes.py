@@ -97,114 +97,163 @@ EXTRA_ITEMS: dict[str, tuple] = {
 _COOKING_UNIT_CACHE: dict[str, dict] = {}
 
 
-# 자주 쓰는 재료 소분 기준표 (unit, 2인분 기준 가격)
-_UNIT_TABLE: dict[str, tuple] = {
-    "양파":           ("1개(200g)",    500),
-    "대파":           ("1/3단",        900),
-    "감자":           ("2개(400g)",   1200),
-    "배추":           ("1/4포기",     1000),
-    "시금치":         ("200g",        2500),
-    "콩나물":         ("200g",         900),
-    "애호박":         ("1개",         1500),
-    "고구마":         ("2개(400g)",   1800),
-    "생강":           ("50g",          800),
-    "마늘":           ("100g",        1200),
-    "청양고추":       ("5개",          500),
-    "당근":           ("1개(150g)",    600),
-    "오이":           ("1개",          700),
-    "무":             ("1/4개",        600),
-    "파프리카":       ("1개",         1200),
-    "브로콜리":       ("1/2개",       1800),
-    "돼지고기앞다리": ("300g",        4500),
-    "닭가슴살":       ("300g",        5500),
-    "소고기":         ("150g",        5000),
-    "계란":           ("6개",         1500),
-    "두부":           ("300g",        1400),
-    "쌀":             ("2인분(400g)", 1500),
-    "당면":           ("300g",        3500),
-    "사과":           ("1개",         2000),
-    "바나나":         ("1/2송이",     1800),
-    "참기름":         ("50ml",        2100),
-    "고추장":         ("150g",        1500),
-    "된장":           ("150g",        1300),
-    "간장":           ("50ml",         400),
-    "고춧가루":       ("100g",        3800),
-    "미역":           ("50g",         1900),
-    "두유":           ("2팩",         1800),
+# ──────────────────────────────────────────────────────────────
+# 단위 변환 규칙: DB 큰 단위 → 요리 소분 단위
+# (단위 문자열 파싱 기반, AI 불필요)
+# ──────────────────────────────────────────────────────────────
+
+# 재료별 소분 단위 기준 (DB unit 무관하게 오버라이드)
+_PORTION_OVERRIDE: dict[str, tuple] = {
+    # 재료명: (소분단위, 2인분비율)  비율 = 소분량 / DB단위량
+    "양파":              ("1개(200g)",    0.20),
+    "대파":              ("1/3단",        0.33),
+    "감자":              ("2개(400g)",    0.40),
+    "배추":              ("1/4포기",      0.25),
+    "고구마":            ("2개(400g)",    0.40),
+    "생강":              ("50g",          0.05),
+    "마늘":              ("100g",         0.10),
+    "청양고추":          ("5개",          0.33),
+    "당근":              ("1개(150g)",    0.15),
+    "무":                ("1/4개",        0.25),
+    "파프리카":          ("1개",          0.33),
+    "브로콜리":          ("1/2개",        0.50),
+    "돼지고기앞다리":    ("300g",         3.00),  # DB=100g 기준
+    "닭가슴살":          ("300g",         3.00),
+    "소고기":            ("150g",         1.50),
+    "계란":              ("6개",          0.20),  # DB=30개
+    "쌀":                ("2인분(400g)", 0.40),
+    "사과":              ("1개",          0.33),  # DB=3개
+    "바나나":            ("1/2송이",      0.50),
+    "참기름":            ("50ml",         0.28),  # DB=180ml
+    "고추장":            ("150g",         0.30),  # DB=500g
+    "된장":              ("150g",         0.30),
+    "간장":              ("50ml",         0.10),  # DB=500ml
+    "두유":              ("2팩",          0.33),
 }
 
 
-def _infer_cooking_unit(item_key: str, db_price: int, db_unit: str, household: int = 2) -> dict:
+def _convert_unit(item_key: str, base_price: int, base_unit: str) -> tuple:
     """
-    1순위: _UNIT_TABLE 직접 매핑
-    2순위: _COOKING_UNIT_CACHE (AI 추론 결과)
-    3순위: AI 추론 후 캐시 저장
-    실패 시 원본 반환.
+    DB 단위/가격을 소분 단위로 변환.
+    1순위: _PORTION_OVERRIDE (재료별 직접 지정)
+    2순위: 단위 문자열 파싱 (kg→g, 단→묶음 등)
     """
-    scale = max(1, household) / 2.0
+    # 1순위: 재료별 오버라이드
+    if item_key in _PORTION_OVERRIDE:
+        display_unit, ratio = _PORTION_OVERRIDE[item_key]
+        price = max(100, round(base_price * ratio / 100) * 100)
+        return display_unit, price
 
-    # 1순위: 기준표
-    if item_key in _UNIT_TABLE:
-        unit, base_price = _UNIT_TABLE[item_key]
-        return {
-            "unit":  unit,
-            "price": max(100, round(base_price * scale / 100) * 100),
-        }
+    # 2순위: 단위 문자열 파싱
+    u = str(base_unit).strip().lower()
 
-    if item_key in _COOKING_UNIT_CACHE:
-        cached = _COOKING_UNIT_CACHE[item_key]
-        # 인원수 비례 가격 조정 (2인 기준으로 저장)
-        scale = max(1, household) / 2.0
-        return {
-            "unit":  cached["unit"],
-            "price": max(100, round(cached["price"] * scale / 100) * 100),
-        }
+    # kg 단위 → 200g 소분
+    if "kg" in u or "원/kg" in u:
+        ratio = 0.2  # 200g / 1kg
+        return "200g", max(100, round(base_price * ratio / 100) * 100)
+
+    # g 단위 → 그대로 (이미 소분)
+    if u.endswith("g") and not u.startswith("k"):
+        return base_unit, base_price
+
+    # ml/l 단위
+    if "l" in u and "ml" not in u:  # 1L 단위
+        return "200ml", max(100, round(base_price * 0.2 / 100) * 100)
+    if "ml" in u:
+        return base_unit, base_price
+
+    # 1포기 → 1/4포기
+    if "포기" in base_unit:
+        return "1/4포기", max(100, round(base_price * 0.25 / 100) * 100)
+
+    # 1단 → 1/3단
+    if "단" in base_unit:
+        return "1/3단", max(100, round(base_price * 0.33 / 100) * 100)
+
+    # 개수 단위 (10개 이상 → 3개)
+    import re
+    m = re.match(r"([0-9]+)개", base_unit)
+    if m:
+        total = int(m.group(1))
+        if total >= 10:
+            ratio = 3 / total
+            return "3개", max(100, round(base_price * ratio / 100) * 100)
+
+    # 송이
+    if "송이" in base_unit:
+        return "1/2송이", max(100, round(base_price * 0.5 / 100) * 100)
+
+    # 원/단위 형태 (KAMIS 도매 단위)
+    if base_unit.startswith("원/"):
+        # 원/kg이면 200g, 원/단이면 1/3단 등
+        sub = base_unit.replace("원/", "")
+        if sub in ("kg", "10kg", "20kg"):
+            return "200g", max(100, round(base_price * 0.2 / 100) * 100)
+        if sub in ("단", "묶음"):
+            return "1/3단", max(100, round(base_price * 0.33 / 100) * 100)
+        if sub in ("포기",):
+            return "1/4포기", max(100, round(base_price * 0.25 / 100) * 100)
+
+    # 변환 불가 → 원본
+    return base_unit, base_price
+
+
+# AI 추론 캐시 (변환 규칙으로 못 처리한 재료)
+_COOKING_AI_CACHE: dict[str, tuple] = {}
+
+
+def _ai_infer_unit(item_key: str, base_price: int, base_unit: str) -> tuple:
+    """규칙으로 변환 불가한 재료만 AI 추론. 캐시 포함."""
+    if item_key in _COOKING_AI_CACHE:
+        return _COOKING_AI_CACHE[item_key]
 
     result = _call_openai(
         system=(
-            "당신은 한국 요리 전문가이자 식품 가격 전문가입니다. "
-            "재료명과 DB 단위/가격을 주면, 2인분 요리 1회에 실제로 구매하는 "
-            "소분 단위와 그에 맞는 실제 시장 가격을 JSON으로만 답하세요. "
-            "DB 가격이 kg/단/포기 단위의 대량 가격일 수 있으니 반드시 소분 환산하세요. "
-            "예시: "
-            "생강(1kg/15000원) → 50g만 사면 되므로 unit=50g, price=750 "
-            "양파(1kg/2200원) → 1개(200g)면 충분 → unit=1개(200g), price=440 "
-            "대파(1단/2500원) → 1/3단이면 충분 → unit=1/3단, price=830 "
-            "계란(30개/7200원) → 6개면 충분 → unit=6개, price=1440 "
-            "참기름(180ml/7500원) → 50ml면 충분 → unit=50ml, price=2080 "
-            "된장(500g/4200원) → 150g이면 충분 → unit=150g, price=1260 "
-            "소고기(100g/3000원) → 150g 구매 → unit=150g, price=4500 "
-            "규칙: 채소는 1~2인 기준 실사용량, 양념은 1회 사용량, 육류는 1인 150g. "
+            "당신은 한국 요리 전문가입니다. "
+            "재료명과 DB 단위/가격을 주면 가정에서 2인분 1회 요리에 실제로 사는 "
+            "소분 단위와 그에 맞는 가격을 JSON으로만 답하세요. "
+            "DB 가격은 대량 기준일 수 있으니 반드시 소분 환산하세요. "
+            "예: 생강(1kg/15000원) → unit=50g, price=750 "
+            "예: 새우(500g/12000원) → unit=200g, price=4800 "
+            "예: 오징어(1마리/4000원) → unit=1마리, price=4000 "
             "단위는 한국어로 간결하게. price는 정수(원). "
             "JSON 형식: unit 필드와 price 필드만"
         ),
-        user=f"재료: {item_key}, DB단위: {db_unit}, DB가격: {db_price}원",
-        max_tokens=80,
+        user=f"재료: {item_key}, DB단위: {db_unit}, DB가격: {base_price}원",
+        max_tokens=60,
     )
 
     if result:
         try:
             obj = json.loads(result)
-            unit  = str(obj.get("unit", db_unit))
-            price = int(obj.get("price", db_price))
-            if unit and 50 <= price <= 200000:
-                _COOKING_UNIT_CACHE[item_key] = {"unit": unit, "price": price}
-                scale = max(1, household) / 2.0
-                return {
-                    "unit":  unit,
-                    "price": max(100, round(price * scale / 100) * 100),
-                }
+            unit = str(obj.get("unit", base_unit))
+            price = int(obj.get("price", base_price))
+            if unit and 50 <= price <= 300000:
+                _COOKING_AI_CACHE[item_key] = (unit, price)
+                return unit, price
         except Exception:
             pass
 
-    # 폴백: 원본 반환
-    return {"unit": db_unit, "price": db_price}
+    return base_unit, base_price
 
 
 def cooking_price(item_key: str, base_price: int, base_unit: str, household: int = 2) -> tuple:
-    """재료 소분 단위/가격 반환. AI 추론 우선, 실패 시 원본."""
-    result = _infer_cooking_unit(item_key, base_price, base_unit, household)
-    return result["unit"], result["price"]
+    """
+    1순위: _PORTION_OVERRIDE + 단위 파싱 규칙
+    2순위: 변환 안 된 경우(원본 그대로 반환된 경우)만 AI 추론
+    """
+    unit, price = _convert_unit(item_key, base_price, base_unit)
+
+    # 규칙으로 변환 안 된 경우 → AI 추론
+    if unit == base_unit and price == base_price:
+        unit, price = _ai_infer_unit(item_key, base_price, base_unit)
+
+    # 인원수 비례
+    if household != 2:
+        scale = max(1, household) / 2.0
+        price = max(100, round(price * scale / 100) * 100)
+
+    return unit, price
 
 
 def _normalize_ingredient(name: str) -> str:
