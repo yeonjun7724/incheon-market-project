@@ -15,7 +15,7 @@ type Tooltip = { name: string; address: string; desc?: string; x: number; y: num
 export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
   const {
     lat, lng, radiusM, routePlans, routeChoice, setLoc,
-    mapStyle, mapboxRoute, setMapboxRoute,
+    mapStyle, mapboxRoute, setMapboxRoute, allMapboxRoutes,
   } = useApp();
   const [stores, setStores]   = useState<Store[]>([]);
   const [tooltip, setTooltip] = useState<Tooltip | null>(null);
@@ -95,25 +95,27 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       return;
     }
-    const SEG_COLORS_LOCAL = ["#0077b6", "#e85d04", "#2d9e5f", "#7b2d8b", "#c1121f", "#f77f00"];
-    const allPts: [number, number][] = [[lng, lat], ...plan.stops.map((s: {lng: number; lat: number}) => [s.lng, s.lat] as [number, number])];
-    const segments = allPts.slice(0, -1).map((pt, i) => ({
-      c0: pt,
-      c1: allPts[i + 1],
-      color: SEG_COLORS_LOCAL[i % SEG_COLORS_LOCAL.length],
-    }));
-    // 구간마다 위상(phase) 다르게 — 동시에 출발하지 않고 연속된 느낌
-    const phases = segments.map((_, i) => i / segments.length);
-    const SPEED = 0.006;
+    // routeSegments가 실제 경로 좌표 배열을 가짐 — 그 위를 따라 이동
+    const SPEED = 0.005;
+    // 구간마다 위상 다르게
+    const phases = routeSegments.map((_, i) => i / Math.max(routeSegments.length, 1));
 
     function animate() {
-      const dots = segments.map((seg, i) => {
+      const dots = routeSegments.map((seg, i) => {
         phases[i] = (phases[i] + SPEED) % 1;
         const t = phases[i];
+        const coords = seg.coords as [number, number][];
+        // 전체 coords 중 t 비율 위치 보간
+        const totalSeg = coords.length - 1;
+        const pos = t * totalSeg;
+        const idx = Math.min(Math.floor(pos), totalSeg - 1);
+        const frac = pos - idx;
+        const [x0, y0] = coords[idx];
+        const [x1, y1] = coords[Math.min(idx + 1, totalSeg)];
         return {
           id: i,
-          lng: seg.c0[0] + (seg.c1[0] - seg.c0[0]) * t,
-          lat: seg.c0[1] + (seg.c1[1] - seg.c0[1]) * t,
+          lng: x0 + (x1 - x0) * frac,
+          lat: y0 + (y1 - y0) * frac,
           color: seg.color,
         };
       });
@@ -138,36 +140,69 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
   // 구간별 색상 팔레트 (1→2 파랑, 2→3 오렌지, 3→4 그린, 4→5 퍼플...)
   const SEG_COLORS = ["#0077b6", "#e85d04", "#2d9e5f", "#7b2d8b", "#c1121f", "#f77f00"];
 
-  // 선택된 경로를 구간별로 분리
+  // 선택된 경로를 구간별로 분리 — Mapbox geometry를 경유지 기준으로 쪼갬
   const routeSegments = useMemo(() => {
     if (!plan) return [];
-    const points = [[lng, lat], ...plan.stops.map((s: {lng: number; lat: number}) => [s.lng, s.lat])];
+    const mb = routeChoice ? allMapboxRoutes[routeChoice] : null;
+
+    if (mb?.geometry?.coordinates?.length) {
+      // Mapbox 실제 경로: 경유지 좌표와 가장 가까운 점으로 구간 분리
+      const coords = mb.geometry.coordinates as [number, number][];
+      const waypoints: [number, number][] = [
+        [lng, lat],
+        ...plan.stops.map((s: {lng: number; lat: number}) => [s.lng, s.lat] as [number, number]),
+      ];
+
+      // 각 경유지에서 가장 가까운 coords 인덱스 찾기
+      const splitIdxs = waypoints.map((wp) => {
+        let minDist = Infinity, idx = 0;
+        coords.forEach(([cx, cy], i) => {
+          const d = Math.hypot(cx - wp[0], cy - wp[1]);
+          if (d < minDist) { minDist = d; idx = i; }
+        });
+        return idx;
+      });
+
+      return splitIdxs.slice(0, -1).map((startIdx, i) => ({
+        id: i,
+        color: SEG_COLORS[i % SEG_COLORS.length],
+        coords: coords.slice(startIdx, splitIdxs[i + 1] + 1),
+      })).filter(seg => seg.coords.length >= 2);
+    }
+
+    // fallback: 직선
+    const points: [number, number][] = [[lng, lat], ...plan.stops.map((s: {lng: number; lat: number}) => [s.lng, s.lat] as [number, number])];
     return points.slice(0, -1).map((pt, i) => ({
       id: i,
       color: SEG_COLORS[i % SEG_COLORS.length],
-      coords: [pt, points[i + 1]],
+      coords: [pt, points[i + 1]] as [number, number][],
     }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plan, lat, lng]);
+  }, [plan, routeChoice, allMapboxRoutes, lat, lng]);
 
-  // 미선택 경로들 (흐린 단색 라인)
+  // 미선택 경로들 — Mapbox 실제 geometry 우선, 없으면 직선
   const unselectedRoutes = useMemo(() => {
     return Object.entries(routePlans)
       .filter(([key]) => key !== routeChoice)
-      .map(([key, p]) => ({
-        key,
-        color: STRAT_COLOR[key] ?? "#888",
-        geoData: {
-          type: "Feature" as const,
-          geometry: {
-            type: "LineString" as const,
-            coordinates: [[lng, lat], ...p.stops.map((s: {lng: number; lat: number}) => [s.lng, s.lat])],
-          },
-          properties: {},
-        },
-      }));
+      .map(([key, p]) => {
+        const mb = allMapboxRoutes[key];
+        return {
+          key,
+          color: STRAT_COLOR[key] ?? "#888",
+          geoData: mb
+            ? { type: "Feature" as const, geometry: mb.geometry, properties: {} }
+            : {
+                type: "Feature" as const,
+                geometry: {
+                  type: "LineString" as const,
+                  coordinates: [[lng, lat], ...p.stops.map((s: {lng: number; lat: number}) => [s.lng, s.lat])],
+                },
+                properties: {},
+              },
+        };
+      });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routePlans, routeChoice, lat, lng]);
+  }, [routePlans, routeChoice, allMapboxRoutes, lat, lng]);
 
   function handleMouseMove(e: MapMouseEvent) {
     const map = mapRef.current;

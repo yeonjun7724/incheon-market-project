@@ -48,6 +48,8 @@ interface AppState {
   // Mapbox 실제 경로
   mapboxRoute: RouteWithMapbox | null;
   setMapboxRoute: (r: RouteWithMapbox | null) => void;
+  allMapboxRoutes: Record<string, RouteWithMapbox>;
+  setAllMapboxRoutes: (r: Record<string, RouteWithMapbox>) => void;
 
   // 영수증 포인트
   receiptPoints: number;
@@ -103,6 +105,8 @@ export const useApp = create<AppState>((set) => ({
 
   mapboxRoute: null,
   setMapboxRoute: (mapboxRoute) => set({ mapboxRoute }),
+  allMapboxRoutes: {},
+  setAllMapboxRoutes: (allMapboxRoutes) => set({ allMapboxRoutes }),
 
   receiptPoints: 0,
   addReceiptPoints: (p) => set((s) => ({ receiptPoints: s.receiptPoints + p })),

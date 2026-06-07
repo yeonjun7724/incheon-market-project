@@ -15,7 +15,7 @@ const STOP_PALETTE = ["#f77f00", "#a855f7", "#ec4899", "#14b8a6", "#f97316", "#e
 export function RoutePanel() {
   const {
     lat, lng, radiusM, picked, routePlans, routeChoice,
-    setRoutePlans, setRouteChoice, setPanel, setMapboxRoute,
+    setRoutePlans, setRouteChoice, setPanel, setMapboxRoute, setAllMapboxRoutes,
     budget, household, pref, useMarket,
   } = useApp();
 
@@ -60,7 +60,13 @@ export function RoutePanel() {
         return [key, r] as const;
       })
     ).then((results) => {
-      setMbRoutes(Object.fromEntries(results));
+      const routeMap = Object.fromEntries(results);
+      setMbRoutes(routeMap);
+      // null 제거 후 store에 저장 → MapCanvas에서 사용
+      const validRoutes = Object.fromEntries(
+        Object.entries(routeMap).filter(([, v]) => v !== null)
+      ) as Record<string, RouteWithMapbox>;
+      setAllMapboxRoutes(validRoutes);
       setLoadingMb(false);
     });
   }, [routePlans, lat, lng]);
