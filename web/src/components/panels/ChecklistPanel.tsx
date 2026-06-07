@@ -4,7 +4,7 @@ import { useApp } from "@/lib/store";
 import { getBuyingTip } from "@/lib/api";
 
 export function ChecklistPanel() {
-  const { routePlans, routeChoice, setRouteChoice, setPanel, toggleFavStore, favStores, setRoutePlans } = useApp();
+  const { routePlans, routeChoice, setRouteChoice, setPanel, toggleFavStore, favStores, setRoutePlans, clearCart } = useApp();
   const [bought, setBought] = useState<Record<string, boolean>>({});
   const [open, setOpen]     = useState<Record<string, boolean>>({});
   const [tip, setTip]       = useState<{ name: string; tips: string[] } | null>(null);
@@ -43,9 +43,8 @@ export function ChecklistPanel() {
   function finish() { setDone(true); }
 
   function restart() {
+    clearCart();          // picked, routePlans, routeChoice, mapboxRoute, allMapboxRoutes, recipe 전부 초기화
     setBought({});
-    setRouteChoice(null);
-    setRoutePlans({});
     setDone(false);
     setPanel(null);
   }
