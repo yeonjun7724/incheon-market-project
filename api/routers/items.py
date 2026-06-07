@@ -80,6 +80,7 @@ def items():
 
 @router.get("/db")
 def items_db():
+    from core.recipes import cooking_price as _cooking_price
     """
     daily_prices DB → 소매가 기준 품목 목록.
     - 소매가(KAMIS) 있으면 그대로 사용
@@ -138,8 +139,10 @@ def items_db():
                 continue   # 가격 없으면 목록에서 제외
 
         # 소분 단위/가격 변환
-        from core.recipes import cooking_price as _cp
-        unit, price = _cp(item_key, int(price), unit)
+        try:
+            unit, price = _cooking_price(item_key, int(price), unit)
+        except Exception:
+            pass  # 변환 실패 시 원본 유지
 
         result.append({
             "item_key":   item_key,
