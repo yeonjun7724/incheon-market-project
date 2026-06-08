@@ -30,6 +30,8 @@ interface AppState {
 
   // 장바구니
   picked: string[];
+  unknownItems: string[];
+  addUnknownItem: (n: string) => void;
   favItems: string[];
   savedRoutes: SavedRoute[];
   saveRoute: (r: SavedRoute) => void;
@@ -92,6 +94,10 @@ export const useApp = create<AppState>((set) => ({
   setPanel: (panel) => set((s) => ({ panel: s.panel === panel ? null : panel })),
 
   picked: [],
+  unknownItems: [],
+  addUnknownItem: (n) => set((s) => ({
+    unknownItems: s.unknownItems.includes(n) ? s.unknownItems : [...s.unknownItems, n],
+  })),
   favItems: [],
   savedRoutes: [],
   saveRoute: (r) => set((s) => ({ savedRoutes: [r, ...s.savedRoutes.slice(0, 19)] })),
@@ -99,6 +105,7 @@ export const useApp = create<AppState>((set) => ({
   favStores: [],
   togglePick: (n) => set((s) => ({
     picked: s.picked.includes(n) ? s.picked.filter((x) => x !== n) : [...s.picked, n],
+    unknownItems: s.picked.includes(n) ? s.unknownItems.filter((x) => x !== n) : s.unknownItems,
   })),
   setPicked: (picked) => set({ picked }),
   toggleFavItem: (n) => set((s) => ({
@@ -107,7 +114,7 @@ export const useApp = create<AppState>((set) => ({
   toggleFavStore: (id) => set((s) => ({
     favStores: s.favStores.includes(id) ? s.favStores.filter((x) => x !== id) : [...s.favStores, id],
   })),
-  clearCart: () => set({ picked: [], routePlans: {}, routeChoice: null, mapboxRoute: null, allMapboxRoutes: {}, recipeDish: null, recipeIngs: [] }),
+  clearCart: () => set({ picked: [], unknownItems: [], routePlans: {}, routeChoice: null, mapboxRoute: null, allMapboxRoutes: {}, recipeDish: null, recipeIngs: [] }),
 
   recipeDish: null,
   recipeIngs: [],

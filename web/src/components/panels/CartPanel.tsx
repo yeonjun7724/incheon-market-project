@@ -6,7 +6,8 @@ import type { DbItem } from "@/lib/types";
 
 export function CartPanel() {
   const {
-    lat, lng, radiusM, picked, favItems, togglePick, toggleFavItem,
+    lat, lng, radiusM, picked, unknownItems, addUnknownItem,
+    favItems, togglePick, toggleFavItem,
     recipeDish, recipeIngs, setRecipe, setRoutePlans, setRouteChoice, setPanel,
     budget, household, pref, useMarket,
   } = useApp();
@@ -33,6 +34,7 @@ export function CartPanel() {
     // dbItems 로딩 중이면 잠시 대기 (최대 100ms)
     const run = () => {
       const missing = picked.filter((key) => {
+        if (unknownItems.includes(key)) return false; // 가격 모름 항목은 추론 스킵
         // 가격 > 0 인 DB 항목만 진짜 DB 등록으로 인정
         const inDb        = dbItems.some((i) => (i.item_key === key || i.name === key) && i.price > 0);
         const inInferred  = key in inferredRef.current;
@@ -67,7 +69,7 @@ export function CartPanel() {
       return () => clearTimeout(t);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [picked, dbItems]);
+  }, [picked, dbItems, unknownItems]);
 
   const meta = (key: string): DbItem | undefined => {
     // 가격 있는 DB 항목 우선, 없으면 추론 결과
@@ -211,7 +213,17 @@ export function CartPanel() {
         {search.trim() && (
           <div className="rounded-2xl border border-[#1a2233]/8 bg-[#1a2233]/3 overflow-hidden max-h-44 overflow-y-auto [scrollbar-width:thin]">
             {addable.length === 0 ? (
-              <p className="px-4 py-3 text-[13px] text-[#8a96b0]">검색 결과 없음</p>
+              <button
+                onClick={() => {
+                  const name = search.trim();
+                  addUnknownItem(name);
+                  togglePick(name);
+                  setSearch("");
+                }}
+                className="w-full px-4 py-3 text-left text-[13px] hover:bg-[#1a2233]/4 transition">
+                <span className="text-[#8a96b0]">검색 결과 없음</span>
+                <span className="ml-2 font-semibold text-[#0077b6]">"{search.trim()}" 추가하기 →</span>
+              </button>
             ) : addable.slice(0, 30).map((item) => (
               <button key={item.item_key}
                 onClick={() => { togglePick(item.item_key); setSearch(""); }}
@@ -238,7 +250,8 @@ export function CartPanel() {
           <div className="space-y-2">
             {picked.map((key) => {
               const m           = meta(key);
-              const isInferring = inferring.has(key);
+              const isUnknown   = unknownItems.includes(key);
+              const isInferring = !isUnknown && inferring.has(key);
               const isAi        = m?.price_type === "AI추론" || m?.price_type === "AI추론~";
               const isRare      = m?.rare === true;
               const fav         = favItems.includes(key);
@@ -264,7 +277,8 @@ export function CartPanel() {
                       )}
                     </div>
                     <div className="text-[10px] text-[#8a96b0] mt-0.5">
-                      {isInferring ? "가격 추론 중…"
+                      {isUnknown ? "가격 모름 · 제보 후 반영"
+                        : isInferring ? "가격 추론 중…"
                         : m ? `${m.unit}${m.unit ? " · " : ""}${m.category}`
                         : "DB 미등록"}
                     </div>
@@ -279,7 +293,9 @@ export function CartPanel() {
                                  text-[#4a5a78] hover:bg-[#1a2233]/6 text-[14px] leading-none">+</button>
                   </div>
                   <div className="text-right shrink-0 min-w-[68px]">
-                    {isInferring ? (
+                    {isUnknown ? (
+                      <div className="text-[11px] text-[#8a96b0]">가격 모름</div>
+                    ) : isInferring ? (
                       <div className="text-[11px] text-[#0077b6] animate-pulse">추론 중…</div>
                     ) : m && m.price > 0 ? (
                       <div className={`text-[13px] font-bold font-mono ${isAi ? "text-[#f77f00]" : "text-[#e63946]"}`}>
