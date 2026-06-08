@@ -213,16 +213,14 @@ export function RoutePanel() {
                   <div className="text-[11px] mt-0.5" style={{ color: "#8a96b0" }}>{s.desc}</div>
                 </div>
               </div>
-              <span
-                className="rounded-full px-3 py-1 text-[11px] font-bold"
-                style={
-                  sel
-                    ? { background: s.color, color: "#fff" }
-                    : { background: "rgba(26,34,51,0.06)", color: "#8a96b0" }
-                }
-              >
-                {sel ? "선택됨" : "선택"}
-              </span>
+              {sel && (
+                <span
+                  className="flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold"
+                  style={{ background: s.color, color: "#fff" }}
+                >
+                  ✓ 선택됨
+                </span>
+              )}
             </div>
 
             {/* ── 지표 4칸 — 절대 줄바꿈 없음 ── */}

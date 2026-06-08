@@ -346,9 +346,9 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
         <Source id="stores" type="geojson" data={geojson}
           cluster clusterMaxZoom={14} clusterRadius={50}>
 
-          {/* ── 클러스터 ── */}
+          {/* ── 클러스터 — 경로 선택 중엔 숨김 ── */}
           {/* 헤일로 링 */}
-          <Layer id="cluster-ring" type="circle" filter={["has", "point_count"]}
+          <Layer id="cluster-ring" type="circle" filter={!routeChoice ? ["has", "point_count"] : ["==", "id", ""]}
             paint={{
               "circle-color": "rgba(0,119,182,0.22)",
               "circle-radius": ["step", ["get", "point_count"], 30, 10, 39, 30, 50],
@@ -357,7 +357,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
             }}
           />
           {/* 채움 원 — 개수에 따라 밝은→진한 블루 */}
-          <Layer id="clusters" type="circle" filter={["has", "point_count"]}
+          <Layer id="clusters" type="circle" filter={!routeChoice ? ["has", "point_count"] : ["==", "id", ""]}
             paint={{
               "circle-color": [
                 "step", ["get", "point_count"],
@@ -372,7 +372,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
             }}
           />
           {/* 숫자 레이블 */}
-          <Layer id="cluster-count" type="symbol" filter={["has", "point_count"]}
+          <Layer id="cluster-count" type="symbol" filter={!routeChoice ? ["has", "point_count"] : ["==", "id", ""]}
             layout={{
               "text-field": ["get", "point_count_abbreviated"],
               "text-size": ["step", ["get", "point_count"], 13, 10, 15, 30, 17],
