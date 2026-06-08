@@ -5,65 +5,224 @@ import { getReports, addReport, getItems } from "@/lib/api";
 import type { Report, Item } from "@/lib/types";
 
 export function ReportPanel() {
-  const { lat, lng } = useApp();
-  const [reports, setReports] = useState<Report[]>([]);
-  const [items, setItems] = useState<Item[]>([]);
-  const [item, setItem] = useState("");
-  const [price, setPrice] = useState("");
-  const [store, setStore] = useState("");
-  const [saving, setSaving] = useState(false);
+  const { lat, lng, routePlans, routeChoice } = useApp();
+  const [reports, setReports]   = useState<Report[]>([]);
+  const [items, setItems]       = useState<Item[]>([]);
+  const [saving, setSaving]     = useState<string | null>(null); // 저장 중인 item key
+  const [saved, setSaved]       = useState<Set<string>>(new Set());
+  const [manualMode, setManualMode] = useState(false);
+  // 수동 입력
+  const [mItem, setMItem]   = useState("");
+  const [mPrice, setMPrice] = useState("");
+  const [mStore, setMStore] = useState("");
+  const [mSaving, setMSaving] = useState(false);
 
   useEffect(() => {
     getReports().then(setReports).catch(console.error);
     getItems().then(setItems).catch(console.error);
   }, []);
 
-  async function submit() {
-    if (!item || !price) return;
-    setSaving(true);
+  // 선택된 경로의 구입 목록 추출
+  const plan = routeChoice ? routePlans[routeChoice] : null;
+  const purchaseList: { item: string; price: number; store: string; emoji: string; key: string }[] = [];
+
+  if (plan?.by_store) {
+    Object.values(plan.by_store).forEach((storeData: any) => {
+      const storeName = storeData.row?.name ?? storeData.name ?? "";
+      storeData.items?.forEach((it: any) => {
+        const key = `${storeName}::${it.name}`;
+        purchaseList.push({
+          item:  it.name,
+          price: it.price,
+          store: storeName,
+          emoji: it.emoji ?? "🛒",
+          key,
+        });
+      });
+    });
+  }
+
+  async function reportItem(entry: typeof purchaseList[0]) {
+    if (saving === entry.key) return;
+    setSaving(entry.key);
     try {
-      await addReport({ item, price: Number(price), store, lat, lng });
+      await addReport({ item: entry.item, price: entry.price, store: entry.store, lat, lng });
+      setSaved((prev) => new Set([...prev, entry.key]));
       setReports(await getReports());
-      setItem(""); setPrice(""); setStore("");
-    } finally { setSaving(false); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function submitManual() {
+    if (!mItem || !mPrice) return;
+    setMSaving(true);
+    try {
+      await addReport({ item: mItem, price: Number(mPrice), store: mStore, lat, lng });
+      setReports(await getReports());
+      setMItem(""); setMPrice(""); setMStore("");
+    } finally { setMSaving(false); }
   }
 
   return (
-    <div className="space-y-4 text-ink1">
-      <p className="text-[11px] font-bold uppercase tracking-wide text-ink3">실제 산 가격을 제보해 주세요</p>
+    <div className="space-y-4">
 
-      <div className="space-y-2">
-        <select value={item} onChange={(e) => setItem(e.target.value)}
-          className="w-full rounded-lg border border-[#1a2233]/10 bg-white/[0.03] px-3 py-2 text-sm text-ink1 outline-none">
-          <option value="">품목 선택…</option>
-          {items.map((i) => <option key={i.code} value={i.name}>{i.emoji} {i.name}</option>)}
-        </select>
-        <input value={price} onChange={(e) => setPrice(e.target.value.replace(/[^0-9]/g, ""))}
-          inputMode="numeric" placeholder="가격 (원)"
-          className="w-full rounded-lg border border-[#1a2233]/10 bg-white/[0.03] px-3 py-2 text-sm text-ink1 placeholder:text-ink3 outline-none" />
-        <input value={store} onChange={(e) => setStore(e.target.value)} placeholder="상점명 (선택)"
-          className="w-full rounded-lg border border-[#1a2233]/10 bg-white/[0.03] px-3 py-2 text-sm text-ink1 placeholder:text-ink3 outline-none" />
-        <button onClick={submit} disabled={saving || !item || !price}
-          className="w-full rounded-xl border border-accent/40 bg-accent/15 py-3 font-bold text-accent hover:bg-accent/25 disabled:opacity-40">
-          {saving ? "등록 중…" : "📝  제보 등록"}
-        </button>
-        <p className="text-[11px] text-ink3">현위치({lat.toFixed(4)}, {lng.toFixed(4)}) 기준으로 등록돼요.</p>
-      </div>
+      {/* ── 구입 목록 자동 제보 ── */}
+      {purchaseList.length > 0 ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[12px] font-bold" style={{ color: "#1a2233" }}>
+              🧾 구입한 재료 — 탭해서 가격 제보
+            </p>
+            <button
+              onClick={() => setManualMode((v) => !v)}
+              className="text-[11px] underline"
+              style={{ color: "#8a96b0" }}
+            >
+              {manualMode ? "자동 목록 보기" : "직접 입력"}
+            </button>
+          </div>
 
-      <div>
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink3">최근 제보 ({reports.length})</p>
-        <div className="space-y-1.5">
-          {reports.map((r, i) => (
-            <div key={i} className="flex items-center gap-2 rounded-lg border border-[#1a2233]/10 bg-white/[0.03] px-3 py-2">
-              <div className="flex-1">
-                <div className="text-[13px] font-bold">{r.item}</div>
-                <div className="text-[11px] text-ink3">{r.store || "위치 미상"}{r.date ? ` · ${r.date}` : ""}</div>
-              </div>
-              <div className="font-mono text-[15px] font-bold text-accent3">{r.price.toLocaleString()}원</div>
+          {!manualMode ? (
+            <div className="space-y-2">
+              {purchaseList.map((entry) => {
+                const isDone    = saved.has(entry.key);
+                const isLoading = saving === entry.key;
+                return (
+                  <button
+                    key={entry.key}
+                    onClick={() => !isDone && reportItem(entry)}
+                    disabled={isDone || isLoading}
+                    className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition active:scale-[0.98]"
+                    style={{
+                      background: isDone
+                        ? "rgba(45,158,95,0.08)"
+                        : "rgba(26,34,51,0.03)",
+                      border: isDone
+                        ? "1px solid rgba(45,158,95,0.25)"
+                        : "1px solid rgba(26,34,51,0.09)",
+                    }}
+                  >
+                    <span className="text-[20px]">{entry.emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-semibold truncate" style={{ color: "#1a2233" }}>
+                        {entry.item}
+                      </div>
+                      <div className="text-[11px]" style={{ color: "#8a96b0" }}>
+                        {entry.store}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="text-[14px] font-black font-mono" style={{ color: "#e85d04" }}>
+                        {entry.price.toLocaleString()}원
+                      </div>
+                      <div className="text-[11px] font-bold" style={{
+                        color: isDone ? "#2d9e5f" : "#0077b6"
+                      }}>
+                        {isLoading ? "등록 중…" : isDone ? "✓ 제보완료" : "탭해서 제보 →"}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+
+              {/* 전체 한번에 제보 */}
+              {purchaseList.some((e) => !saved.has(e.key)) && (
+                <button
+                  onClick={() => purchaseList.filter((e) => !saved.has(e.key)).forEach(reportItem)}
+                  className="w-full rounded-2xl py-3 text-[13px] font-bold"
+                  style={{ background: "#0077b6", color: "#fff" }}
+                >
+                  📝 전체 한번에 제보하기
+                </button>
+              )}
             </div>
-          ))}
+          ) : (
+            <ManualForm
+              items={items} lat={lat} lng={lng}
+              mItem={mItem} setMItem={setMItem}
+              mPrice={mPrice} setMPrice={setMPrice}
+              mStore={mStore} setMStore={setMStore}
+              mSaving={mSaving} onSubmit={submitManual}
+            />
+          )}
         </div>
-      </div>
+      ) : (
+        /* 경로 미선택 시 수동 입력 */
+        <div className="space-y-2">
+          <p className="text-[12px] font-bold" style={{ color: "#1a2233" }}>
+            실제 산 가격을 제보해 주세요
+          </p>
+          <ManualForm
+            items={items} lat={lat} lng={lng}
+            mItem={mItem} setMItem={setMItem}
+            mPrice={mPrice} setMPrice={setMPrice}
+            mStore={mStore} setMStore={setMStore}
+            mSaving={mSaving} onSubmit={submitManual}
+          />
+        </div>
+      )}
+
+      {/* ── 최근 제보 ── */}
+      {reports.length > 0 && (
+        <div>
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-wide" style={{ color: "#8a96b0" }}>
+            최근 제보 ({reports.length})
+          </p>
+          <div className="space-y-1.5">
+            {reports.map((r, i) => (
+              <div key={i} className="flex items-center gap-2 rounded-xl px-3 py-2"
+                style={{ background: "rgba(26,34,51,0.03)", border: "1px solid rgba(26,34,51,0.08)" }}>
+                <div className="flex-1">
+                  <div className="text-[13px] font-bold" style={{ color: "#1a2233" }}>{r.item}</div>
+                  <div className="text-[11px]" style={{ color: "#8a96b0" }}>
+                    {r.store || "위치 미상"}{r.date ? ` · ${r.date}` : ""}
+                  </div>
+                </div>
+                <div className="font-mono text-[15px] font-bold" style={{ color: "#f77f00" }}>
+                  {r.price.toLocaleString()}원
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ManualForm({ items, lat, lng, mItem, setMItem, mPrice, setMPrice, mStore, setMStore, mSaving, onSubmit }: {
+  items: Item[]; lat: number; lng: number;
+  mItem: string; setMItem: (v: string) => void;
+  mPrice: string; setMPrice: (v: string) => void;
+  mStore: string; setMStore: (v: string) => void;
+  mSaving: boolean; onSubmit: () => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <select value={mItem} onChange={(e) => setMItem(e.target.value)}
+        className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
+        style={{ border: "1px solid rgba(26,34,51,0.12)", background: "rgba(26,34,51,0.02)", color: "#1a2233" }}>
+        <option value="">품목 선택…</option>
+        {items.map((i) => <option key={i.code} value={i.name}>{i.emoji} {i.name}</option>)}
+      </select>
+      <input value={mPrice} onChange={(e) => setMPrice(e.target.value.replace(/[^0-9]/g, ""))}
+        inputMode="numeric" placeholder="가격 (원)"
+        className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
+        style={{ border: "1px solid rgba(26,34,51,0.12)", background: "rgba(26,34,51,0.02)", color: "#1a2233" }} />
+      <input value={mStore} onChange={(e) => setMStore(e.target.value)} placeholder="상점명 (선택)"
+        className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
+        style={{ border: "1px solid rgba(26,34,51,0.12)", background: "rgba(26,34,51,0.02)", color: "#1a2233" }} />
+      <button onClick={onSubmit} disabled={mSaving || !mItem || !mPrice}
+        className="w-full rounded-xl py-3 text-[13px] font-bold disabled:opacity-40"
+        style={{ background: "rgba(0,119,182,0.12)", color: "#0077b6", border: "1px solid rgba(0,119,182,0.25)" }}>
+        {mSaving ? "등록 중…" : "📝 제보 등록"}
+      </button>
+      <p className="text-[11px]" style={{ color: "#8a96b0" }}>
+        현위치 ({lat.toFixed(4)}, {lng.toFixed(4)}) 기준으로 등록돼요
+      </p>
     </div>
   );
 }
