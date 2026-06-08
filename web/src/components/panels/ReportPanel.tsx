@@ -16,6 +16,7 @@ export function ReportPanel() {
   const [mPrice, setMPrice] = useState("");
   const [mStore, setMStore] = useState("");
   const [mSaving, setMSaving] = useState(false);
+  const [toast, setToast] = useState(false);
 
   useEffect(() => {
     getReports().then(setReports).catch(console.error);
@@ -70,11 +71,48 @@ export function ReportPanel() {
       await addReport({ item: mItem, price: Number(mPrice), store: mStore, lat, lng });
       setReports(await getReports());
       setMItem(""); setMPrice(""); setMStore("");
+      setToast(true);
+      setTimeout(() => setToast(false), 2000);
     } finally { setMSaving(false); }
+  }
+
+  // 제보 상태 초기화 — 제보완료 표시·수동 입력·모드 모두 리셋
+  function reset() {
+    setSaved(new Set());
+    setSaving(null);
+    setManualMode(false);
+    setMItem(""); setMPrice(""); setMStore("");
+    setToast(false);
   }
 
   return (
     <div className="space-y-4">
+
+      {/* ── 초기화 바 — 제보완료 항목이나 작성 중 입력이 있을 때만 노출 ── */}
+      {(saved.size > 0 || manualMode || mItem || mPrice || mStore) && (
+        <div className="flex items-center justify-between">
+          <span className="text-[11px]" style={{ color: "#8a96b0" }}>
+            {saved.size > 0 ? `제보완료 ${saved.size}건` : "작성 중"}
+          </span>
+          <button
+            onClick={reset}
+            className="rounded-full px-3 py-1 text-[11px] font-bold"
+            style={{ background: "rgba(26,34,51,0.06)", color: "#4a5a78", border: "1px solid rgba(26,34,51,0.10)" }}
+          >
+            ↺ 초기화
+          </button>
+        </div>
+      )}
+
+      {/* ── 등록 완료 토스트 ── */}
+      {toast && (
+        <div
+          className="flex items-center justify-center gap-2 rounded-2xl py-2.5 px-4"
+          style={{ background: "rgba(45,158,95,0.10)", border: "1px solid rgba(45,158,95,0.28)", color: "#2d9e5f", fontSize: 13, fontWeight: 700 }}
+        >
+          ✓ 제보가 등록되었어요
+        </div>
+      )}
 
       {/* ── 구입 목록 자동 제보 ── */}
       {purchaseList.length > 0 ? (
