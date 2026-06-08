@@ -83,6 +83,8 @@ def fetch_daily_prices(country_code: str = "2100") -> list[dict]:
 
     rows = []
     for item in data.get("price", []):
+        if item.get("product_cls_code") != "01":  # 소매(01)만, 도매(02) 제외
+            continue
         rows.append({
             "item_name":       item.get("item_name", ""),
             "unit":            item.get("unit", ""),
