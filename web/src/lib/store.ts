@@ -36,6 +36,7 @@ interface AppState {
   deleteSavedRoute: (id: string) => void;
   favStores: string[];
   togglePick: (n: string) => void;
+  setPicked: (names: string[]) => void;
   toggleFavItem: (n: string) => void;
   toggleFavStore: (id: string) => void;
   clearCart: () => void;
@@ -99,6 +100,7 @@ export const useApp = create<AppState>((set) => ({
   togglePick: (n) => set((s) => ({
     picked: s.picked.includes(n) ? s.picked.filter((x) => x !== n) : [...s.picked, n],
   })),
+  setPicked: (picked) => set({ picked }),
   toggleFavItem: (n) => set((s) => ({
     favItems: s.favItems.includes(n) ? s.favItems.filter((x) => x !== n) : [...s.favItems, n],
   })),

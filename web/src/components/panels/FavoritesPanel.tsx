@@ -9,6 +9,8 @@ export function FavoritesPanel() {
   const {
     lat, lng, radiusM, favStores, favItems, toggleFavStore,
     setRoutePlans, setRouteChoice, setPanel, picked,
+    setPicked, setTravelMode, setLoc, setRadius,
+    setMapboxRoute, setAllMapboxRoutes,
   } = useApp();
   const [stores, setStores] = useState<Store[]>([]);
   const [items, setItems] = useState<Item[]>([]);
@@ -40,6 +42,29 @@ export function FavoritesPanel() {
 
   const { savedRoutes, deleteSavedRoute } = useApp();
 
+  // 저장된 경로 복원 — 스냅샷이 있으면 저장 시점 그대로, 없으면(구버전) 재계산
+  function restoreRoute(r: SavedRoute) {
+    if (r.ingredients?.length) setPicked(r.ingredients);
+    // travelMode 변경은 mapboxRoute/allMapboxRoutes를 초기화하므로 먼저 호출
+    setTravelMode((r.travelMode === "driving" ? "driving" : "walking"));
+    if (r.origin) setLoc(r.origin.lat, r.origin.lng);
+    if (typeof r.radiusM === "number") setRadius(r.radiusM);
+
+    if (r.plan) {
+      // 정확 복원: 전체 경로 + 실측 geometry를 그대로 주입
+      setRoutePlans({ [r.strategy]: r.plan });
+      setRouteChoice(r.strategy);
+      const geo = r.mapbox ?? null;
+      setMapboxRoute(geo);
+      setAllMapboxRoutes(geo ? { [r.strategy]: geo } : {});
+    } else {
+      // 구버전 저장본: 같은 재료로 재계산하도록 비움
+      setRoutePlans({});
+      setRouteChoice(r.strategy);
+    }
+    setPanel("stores"); // 추천 경로 패널 → 지도에 경로 표시
+  }
+
   return (
     <div className="space-y-5 text-ink1">
 
@@ -49,7 +74,7 @@ export function FavoritesPanel() {
           <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink3">🗺️ 저장된 경로</p>
           <div className="space-y-2">
             {savedRoutes.map((r) => (
-              <SavedRouteCard key={r.id} r={r} onDelete={() => deleteSavedRoute(r.id)} onReuse={() => { setPanel("cart"); }} />
+              <SavedRouteCard key={r.id} r={r} onDelete={() => deleteSavedRoute(r.id)} onRestore={() => restoreRoute(r)} />
             ))}
           </div>
         </section>
@@ -138,7 +163,7 @@ export function FavoritesPanel() {
   );
 }
 
-function SavedRouteCard({ r, onDelete, onReuse }: { r: SavedRoute; onDelete: () => void; onReuse: () => void }) {
+function SavedRouteCard({ r, onDelete, onRestore }: { r: SavedRoute; onDelete: () => void; onRestore: () => void }) {
   const [open, setOpen] = _useState(false);
   const date = new Date(r.savedAt);
   const dateStr = `${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2,'0')}`;
@@ -149,9 +174,9 @@ function SavedRouteCard({ r, onDelete, onReuse }: { r: SavedRoute; onDelete: () 
 
   return (
     <div className="rounded-2xl overflow-hidden" style={{ border: `1.5px solid ${color}22`, background: "#fff" }}>
-      {/* 헤더 */}
-      <button className="w-full flex items-center gap-3 px-4 py-3 text-left"
-        style={{ background: `${color}08` }} onClick={() => setOpen(v => !v)}>
+      {/* 헤더 — 탭하면 그 경로를 지도에 다시 띄움 */}
+      <div className="w-full flex items-center gap-3 px-4 py-3 text-left cursor-pointer"
+        style={{ background: `${color}08` }} onClick={onRestore} role="button">
         <div className="flex-1 min-w-0">
           <div className="text-[13px] font-extrabold truncate" style={{ color }}>{r.name}</div>
           <div className="text-[11px] mt-0.5 flex gap-2 flex-wrap" style={{ color: "#8a96b0" }}>
@@ -161,8 +186,13 @@ function SavedRouteCard({ r, onDelete, onReuse }: { r: SavedRoute; onDelete: () 
             </span>
           </div>
         </div>
-        <span style={{ color: "#8a96b0", fontSize: 14 }}>{open ? "▲" : "▼"}</span>
-      </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
+          className="shrink-0 px-1"
+          style={{ color: "#8a96b0", fontSize: 14 }}
+          aria-label="상세 내역"
+        >{open ? "▲" : "▼"}</button>
+      </div>
 
       {/* 거래 내역 상세 */}
       {open && (
@@ -215,10 +245,10 @@ function SavedRouteCard({ r, onDelete, onReuse }: { r: SavedRoute; onDelete: () 
 
           {/* 액션 버튼 */}
           <div className="flex gap-2 pt-1">
-            <button onClick={onReuse}
+            <button onClick={onRestore}
               className="flex-1 rounded-xl py-2 text-[12px] font-bold"
               style={{ background: `${color}15`, color }}>
-              🔄 이 재료로 다시 검색
+              🗺️ 이 경로 다시 보기
             </button>
             <button onClick={onDelete}
               className="rounded-xl px-3 py-2 text-[12px] font-bold"

@@ -24,6 +24,7 @@ export function RoutePanel() {
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [planError, setPlanError] = useState(false);
   const [loadingMb, setLoadingMb] = useState(false);
+  const [savedToast, setSavedToast] = useState(false);
 
   useEffect(() => {
     if (picked.length && Object.keys(routePlans).length === 0) {
@@ -341,6 +342,7 @@ export function RoutePanel() {
         const p = routePlans[routeChoice];
         const mb = mbRoutes[routeChoice];
         return (
+          <>
           <button
             onClick={() => {
               const now = new Date();
@@ -379,13 +381,37 @@ export function RoutePanel() {
                 purchases,
                 grandTotal,
                 savedAt: now.toISOString(),
+                // 정확 복원용 스냅샷
+                plan: p,
+                mapbox: mb ?? null,
+                origin: { lat, lng },
+                radiusM,
               });
+              setSavedToast(true);
+              setTimeout(() => setSavedToast(false), 2400);
             }}
             className="w-full rounded-2xl py-3 text-[13px] font-bold"
             style={{ background: "rgba(26,34,51,0.06)", color: "#4a5a78", border: "1px solid rgba(26,34,51,0.10)" }}
           >
             ⭐ 이 경로 저장하기
           </button>
+
+          {/* ── 저장 완료 토스트 ── */}
+          {savedToast && (
+            <div
+              className="flex items-center justify-center gap-2 rounded-2xl py-3 px-4"
+              style={{
+                background: "rgba(45,158,95,0.10)",
+                border: "1px solid rgba(45,158,95,0.28)",
+                color: "#2d9e5f",
+                fontSize: 13,
+                fontWeight: 700,
+              }}
+            >
+              ⭐ 경로가 추가되어 즐겨찾기에 등록되었어요
+            </div>
+          )}
+          </>
         );
       })()}
 

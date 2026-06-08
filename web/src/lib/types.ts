@@ -67,6 +67,11 @@ export interface SavedRoute {
   purchases: PurchaseStore[];
   grandTotal: number;
   savedAt: string;
+  // ── 정확 복원용 스냅샷 (구버전 저장본 호환을 위해 모두 optional) ──
+  plan?: RoutePlan;                 // 선택된 전략의 전체 경로(stops 좌표·by_store 포함)
+  mapbox?: RouteWithMapbox | null;  // Mapbox 실측 geometry
+  origin?: { lat: number; lng: number }; // 저장 시 출발 좌표
+  radiusM?: number;                 // 저장 시 반경
 }
 
 export interface Recipe {
