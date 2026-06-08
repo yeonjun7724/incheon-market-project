@@ -156,6 +156,45 @@ def items_db():
         })
 
     result.sort(key=lambda x: x["category"])
+
+    # price_reports 오버라이드 + 신규 품목 추가
+    try:
+        from core.db import get_engine
+        from sqlalchemy import text as _text
+        with get_engine().connect() as conn:
+            rep_rows = conn.execute(_text("""
+                SELECT DISTINCT ON (item_key)
+                    item_key, price AS reported_price, unit AS reported_unit
+                FROM price_reports
+                ORDER BY item_key, reported_at DESC
+            """)).fetchall()
+        existing_keys = {r["item_key"] for r in result}
+        for rep in rep_rows:
+            rk    = rep[0]
+            rprice = int(rep[1])
+            runit  = rep[2] or "원/개"
+            if rk in existing_keys:
+                for r in result:
+                    if r["item_key"] == rk:
+                        r["price"]      = rprice
+                        r["price_type"] = "제보"
+                        break
+            else:
+                try:
+                    runit, rprice = _cooking_price(rk, rprice, runit)
+                except Exception:
+                    pass
+                result.append({
+                    "item_key":   rk,
+                    "name":       rk,
+                    "category":   "기타",
+                    "price":      rprice,
+                    "unit":       runit,
+                    "price_type": "제보",
+                })
+    except Exception:
+        pass
+
     return result
 
 

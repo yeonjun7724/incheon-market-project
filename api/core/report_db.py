@@ -24,7 +24,7 @@ def load_reports() -> list:
     try:
         with _engine().connect() as conn:
             rows = conn.execute(text("""
-                SELECT item_key AS item, price, store, lat, lng,
+                SELECT item_key AS item, price, unit, store, lat, lng,
                        TO_CHAR(reported_at, 'YYYY-MM-DD') AS date
                 FROM price_reports
                 ORDER BY reported_at DESC
