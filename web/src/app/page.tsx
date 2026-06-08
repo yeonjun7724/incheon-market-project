@@ -257,8 +257,8 @@ export default function Home() {
                 <div style={{ fontSize: 32, lineHeight: 1, filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.3))" }}>📍</div>
               </div>
             </div>
-            {/* 하단 확정 바 */}
-            <div className="fixed bottom-0 inset-x-0 z-[600] flex gap-2 px-4 pb-safe"
+            {/* 하단 확정 바 — BottomNav(z-1001) 위에 */}
+            <div className="fixed bottom-0 inset-x-0 z-[1002] flex gap-2 px-4"
               style={{
                 paddingBottom: "calc(env(safe-area-inset-bottom, 8px) + 12px)",
                 background: "rgba(255,255,255,0.97)",
