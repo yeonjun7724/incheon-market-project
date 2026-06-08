@@ -5,7 +5,7 @@ import { getReports, addReport, getItems, getStores } from "@/lib/api";
 import type { Report, Item, Store } from "@/lib/types";
 
 export function ReportPanel() {
-  const { lat, lng, routePlans, routeChoice, setPanel, clearCart } = useApp();
+  const { lat, lng, routePlans, routeChoice, setPanel, clearCart, picked } = useApp();
   const [reports, setReports]   = useState<Report[]>([]);
   const [items, setItems]       = useState<Item[]>([]);
   const [stores, setStores]     = useState<Store[]>([]);
@@ -18,6 +18,8 @@ export function ReportPanel() {
   const [mStore, setMStore] = useState("");
   const [mUnit, setMUnit]   = useState("");
   const [mSaving, setMSaving] = useState(false);
+  const [uncoveredPrices, setUncoveredPrices] = useState<Record<string, string>>({});
+  const [uncoveredSaved, setUncoveredSaved]   = useState<Set<string>>(new Set());
   const [toast, setToast] = useState(false);
 
   useEffect(() => {
@@ -28,6 +30,10 @@ export function ReportPanel() {
 
   // 선택된 경로의 구입 목록 추출
   const plan = routeChoice ? routePlans[routeChoice] : null;
+  const coveredNames = new Set(
+    plan ? Object.values(plan.by_store).flatMap((s: any) => s.items.map((it: any) => it.name)) : []
+  );
+  const uncovered = picked.filter((name) => !coveredNames.has(name));
   const purchaseList: { item: string; price: number; store: string; unit: string; emoji: string; key: string }[] = [];
 
   if (plan?.by_store) {
@@ -80,12 +86,24 @@ export function ReportPanel() {
     } finally { setMSaving(false); }
   }
 
+  async function reportUncovered(name: string) {
+    const price = Number(uncoveredPrices[name] ?? "");
+    if (!price) return;
+    try {
+      await addReport({ item: name, price, store: "", lat, lng });
+      setUncoveredSaved((prev) => new Set([...prev, name]));
+      setReports(await getReports());
+    } catch (e) { console.error(e); }
+  }
+
   // 제보 상태 초기화 — 제보완료 표시·수동 입력·모드 모두 리셋
   function reset() {
     setSaved(new Set());
     setSaving(null);
     setManualMode(false);
     setMItem(""); setMPrice(""); setMStore(""); setMUnit("");
+    setUncoveredPrices({});
+    setUncoveredSaved(new Set());
     setToast(false);
   }
 
@@ -218,6 +236,53 @@ export function ReportPanel() {
             mUnit={mUnit} setMUnit={setMUnit}
             mSaving={mSaving} onSubmit={submitManual}
           />
+        </div>
+      )}
+
+      {/* ── 그 외 항목 제보 ── */}
+      {uncovered.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[12px] font-bold" style={{ color: "#1a2233" }}>
+            🛒 그 외 항목 — 구입 가격 제보
+          </p>
+          <p className="text-[11px]" style={{ color: "#8a96b0" }}>
+            경로에 포함되지 않은 항목이에요. 가격을 입력해 제보해 주세요.
+          </p>
+          {uncovered.map((name) => {
+            const isDone = uncoveredSaved.has(name);
+            return (
+              <div key={name} className="flex items-center gap-2 rounded-2xl px-4 py-3"
+                style={{
+                  background: isDone ? "rgba(45,158,95,0.08)" : "rgba(26,34,51,0.03)",
+                  border: isDone ? "1px solid rgba(45,158,95,0.25)" : "1px solid rgba(26,34,51,0.09)",
+                }}>
+                <span className="flex-1 text-[13px] font-semibold" style={{ color: isDone ? "#8a96b0" : "#1a2233" }}>
+                  🛒 {name}
+                </span>
+                {isDone ? (
+                  <span className="text-[11px] font-bold" style={{ color: "#2d9e5f" }}>✓ 제보완료</span>
+                ) : (
+                  <>
+                    <input
+                      value={uncoveredPrices[name] ?? ""}
+                      onChange={(e) => setUncoveredPrices((p) => ({ ...p, [name]: e.target.value.replace(/[^0-9]/g, "") }))}
+                      inputMode="numeric" placeholder="가격 (원)"
+                      className="w-24 rounded-xl px-2 py-1.5 text-[12px] outline-none text-right"
+                      style={{ border: "1px solid rgba(26,34,51,0.12)", background: "#fff", color: "#1a2233" }}
+                    />
+                    <button
+                      onClick={() => reportUncovered(name)}
+                      disabled={!uncoveredPrices[name]}
+                      className="rounded-xl px-3 py-1.5 text-[12px] font-bold disabled:opacity-40"
+                      style={{ background: "rgba(0,119,182,0.12)", color: "#0077b6", border: "1px solid rgba(0,119,182,0.25)" }}
+                    >
+                      제보
+                    </button>
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

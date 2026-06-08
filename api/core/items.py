@@ -158,25 +158,42 @@ def load_items() -> pd.DataFrame:
     df["code"]     = df["item_key"]
     df["name"]     = df["item_key"]
 
-    # price_reports 제보 우선 적용 (테이블 없으면 조용히 스킵)
+    # price_reports 제보 우선 적용 + daily_prices에 없는 제보 품목 추가
     try:
         from core.db import get_engine
         from sqlalchemy import text
         with get_engine().connect() as conn:
             reports = pd.read_sql(text("""
                 SELECT DISTINCT ON (item_key)
-                    item_key, price AS reported_price
+                    item_key, price AS reported_price, unit AS reported_unit
                 FROM price_reports
                 ORDER BY item_key, reported_at DESC
             """), conn)
         if not reports.empty:
-            report_map = dict(zip(reports["item_key"], reports["reported_price"].astype(int)))
-            for item_key, rep_price in report_map.items():
-                mask = df["name"] == item_key
-                if mask.any():
+            existing_keys = set(df["name"].tolist())
+            new_rows = []
+            for _, row in reports.iterrows():
+                item_key  = row["item_key"]
+                rep_price = int(row["reported_price"])
+                if item_key in existing_keys:
+                    mask = df["name"] == item_key
                     df.loc[mask, "avg_price"]         = rep_price
                     df.loc[mask, "market_price"]      = int(rep_price * 0.92)
                     df.loc[mask, "supermarket_price"] = int(rep_price * 1.08)
+                else:
+                    rep_unit = row.get("reported_unit") or "원/개"
+                    new_rows.append({
+                        "code":             item_key,
+                        "name":             item_key,
+                        "category":         "기타",
+                        "unit":             rep_unit,
+                        "emoji":            EMOJI_MAP.get(item_key, "🛒"),
+                        "avg_price":        rep_price,
+                        "market_price":     int(rep_price * 0.92),
+                        "supermarket_price":int(rep_price * 1.08),
+                    })
+            if new_rows:
+                df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
     except Exception:
         pass
 
