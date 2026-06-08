@@ -252,12 +252,17 @@ function ManualForm({ items, lat, lng, mItem, setMItem, mPrice, setMPrice, mStor
 }) {
   return (
     <div className="space-y-2">
-      <select value={mItem} onChange={(e) => setMItem(e.target.value)}
+      <input
+        value={mItem}
+        onChange={(e) => setMItem(e.target.value)}
+        list="report-item-autocomplete"
+        placeholder="품목 입력… (자동완성)"
         className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
-        style={{ border: "1px solid rgba(26,34,51,0.12)", background: "rgba(26,34,51,0.02)", color: "#1a2233" }}>
-        <option value="">품목 선택…</option>
-        {items.map((i) => <option key={i.code} value={i.name}>{i.emoji} {i.name}</option>)}
-      </select>
+        style={{ border: "1px solid rgba(26,34,51,0.12)", background: "rgba(26,34,51,0.02)", color: "#1a2233" }}
+      />
+      <datalist id="report-item-autocomplete">
+        {items.map((i) => <option key={i.code} value={i.name} />)}
+      </datalist>
       <input value={mPrice} onChange={(e) => setMPrice(e.target.value.replace(/[^0-9]/g, ""))}
         inputMode="numeric" placeholder="가격 (원)"
         className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"

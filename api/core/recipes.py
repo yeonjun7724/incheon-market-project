@@ -788,3 +788,98 @@ def buying_tip(name: str) -> list[str]:
         if k in key or key in k:
             return tips
     return ["신선한 것으로 구매하세요.", "유통기한을 꼭 확인하세요."]
+
+
+# ──────────────────────────────────────────────────────────────
+# 7) AI 식단 추천
+# ──────────────────────────────────────────────────────────────
+_MEAL_AI_CACHE: dict[str, list[dict]] = {}
+
+_PREF_DESC = {
+    "균형":   "균형잡힌 영양의 한국 가정식",
+    "저단백": "단백질을 줄인 신장 친화적 식단",
+    "고단백": "단백질 풍부한 운동·다이어트용 식단",
+    "채식":   "채소 위주의 채식 식단",
+}
+
+_PREF_FALLBACK: dict[str, list[dict]] = {
+    "균형":   [
+        {"dish": "된장찌개", "ingredients": ["두부", "감자", "대파", "된장", "계란"]},
+        {"dish": "제육볶음", "ingredients": ["돼지고기앞다리", "양파", "대파", "고추장"]},
+    ],
+    "저단백": [
+        {"dish": "감자조림", "ingredients": ["감자", "간장", "마늘", "양파"]},
+        {"dish": "계란찜",   "ingredients": ["계란", "대파", "간장", "참기름"]},
+    ],
+    "고단백": [
+        {"dish": "닭가슴살 샐러드", "ingredients": ["닭가슴살", "시금치", "계란", "두부"]},
+        {"dish": "두부 된장국",     "ingredients": ["두부", "대파", "된장", "계란"]},
+    ],
+    "채식":   [
+        {"dish": "시금치 된장국", "ingredients": ["시금치", "두부", "된장", "대파"]},
+        {"dish": "콩나물밥",      "ingredients": ["콩나물", "쌀", "간장", "참기름"]},
+    ],
+}
+
+
+def recommend_meals_ai(pref: str, budget: int = 50000, household: int = 2) -> list[dict]:
+    """선호 식단 → AI 요리 2개 추천 (ingredient 이름 리스트). 실패 시 폴백."""
+    cache_key = f"{pref}:{household}"
+    if cache_key in _MEAL_AI_CACHE:
+        return _MEAL_AI_CACHE[cache_key]
+
+    desc = _PREF_DESC.get(pref, "균형잡힌 식단")
+    result = _call_openai(
+        system=(
+            "당신은 한국 요리 전문가입니다. "
+            "식단 유형·예산·가구수를 주면 어울리는 요리 2가지를 추천하세요. "
+            "각 요리마다 이름과 주요 재료(한국 마트에서 살 수 있는 식재료 이름 4-6개)를 포함합니다. "
+            '형식: {"meals": [{"dish": "요리명", "ingredients": ["재료1", ...]}, ...]} '
+            "재료 이름은 간결하게(예: 닭가슴살, 양파, 대파, 감자, 두부 등). 소금·물·식용유 제외."
+        ),
+        user=f"식단: {desc}, 예산 {budget}원, {household}인 가구",
+        max_tokens=400,
+    )
+
+    meals: list[dict] = []
+    if result:
+        try:
+            obj = json.loads(result)
+            for m in obj.get("meals", [])[:2]:
+                dish = m.get("dish", "")
+                raw_ings = m.get("ingredients", [])
+                if dish and raw_ings:
+                    ings = [_normalize_ingredient(i) for i in raw_ings if i]
+                    meals.append({"dish": dish, "ingredients": ings})
+        except Exception:
+            pass
+
+    if not meals:
+        meals = list(_PREF_FALLBACK.get(pref, _PREF_FALLBACK["균형"]))
+
+    _MEAL_AI_CACHE[cache_key] = meals
+    return meals
+
+
+def lookup_ingredient_info(name: str, items_df: pd.DataFrame, household: int = 2) -> dict:
+    """재료명 → {name, price, unit, emoji} — DB → EXTRA_ITEMS → AI 순."""
+    items_by_key: dict[str, pd.Series] = {}
+    if not items_df.empty:
+        for _, row in items_df.iterrows():
+            key = str(row.get("name", row.get("code", "")))
+            if key:
+                items_by_key[key] = row
+
+    if name in items_by_key:
+        row = items_by_key[name]
+        base_price = int(row.get("supermarket_price", row.get("avg_price", 2000)))
+        unit, price = cooking_price(name, base_price, str(row.get("unit", "")), household)
+        return {"name": name, "price": price, "unit": unit, "emoji": str(row.get("emoji", "🛒"))}
+
+    if name in EXTRA_ITEMS:
+        ei = EXTRA_ITEMS[name]
+        unit, price = cooking_price(name, ei[2], ei[1], household)
+        return {"name": name, "price": price, "unit": unit, "emoji": ei[5]}
+
+    price = _infer_item_price_ai(name)
+    return {"name": name, "price": price, "unit": "", "emoji": "🛒"}

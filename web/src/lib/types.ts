@@ -125,6 +125,20 @@ export interface ReceiptItem {
   qty: number;
 }
 
+export interface MealIngredient {
+  name: string;
+  price: number;
+  unit: string;
+  emoji: string;
+}
+export interface MealCard {
+  dish: string;
+  ingredients: MealIngredient[];
+}
+export interface MealRecommendationResult {
+  meals: MealCard[];
+}
+
 export interface ReceiptScanResult {
   store_name: string;
   store_id: string;

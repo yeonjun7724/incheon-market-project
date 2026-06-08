@@ -4,7 +4,7 @@ import { useApp } from "@/lib/store";
 import { getBuyingTip } from "@/lib/api";
 
 export function ChecklistPanel() {
-  const { routePlans, routeChoice, setRouteChoice, setPanel, toggleFavStore, favStores, setRoutePlans, clearCart } = useApp();
+  const { routePlans, routeChoice, setRouteChoice, setPanel, toggleFavStore, favStores, setRoutePlans, clearCart, picked } = useApp();
   const [bought, setBought] = useState<Record<string, boolean>>({});
   const [open, setOpen]     = useState<Record<string, boolean>>({});
   const [tip, setTip]       = useState<{ name: string; tips: string[] } | null>(null);
@@ -28,6 +28,12 @@ export function ChecklistPanel() {
 
   const plan = routePlans[routeChoice];
   const grandTotal  = Object.values(plan.by_store).flatMap((s) => s.items).reduce((sum, it) => sum + it.price, 0);
+
+  const coveredNames = new Set(
+    Object.values(plan.by_store).flatMap((s) => s.items.map((it) => it.name))
+  );
+  const uncovered = picked.filter((name) => !coveredNames.has(name));
+
   const boughtTotal = Object.entries(plan.by_store)
     .flatMap(([sid, s]) => s.items.map((it) => ({ key: `${sid}::${it.name}`, p: it.price })))
     .filter((x) => bought[x.key]).reduce((sum, x) => sum + x.p, 0);
@@ -216,6 +222,47 @@ export function ChecklistPanel() {
           </div>
         );
       })}
+
+      {/* 그 외 — 가게 배정 안 된 항목 */}
+      {uncovered.length > 0 && (
+        <div className="rounded-xl overflow-hidden"
+          style={{ border: "1px solid rgba(26,34,51,0.09)" }}>
+          <div className="flex items-center gap-2.5 px-4 py-3"
+            style={{ background: "rgba(26,34,51,0.03)" }}>
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-black"
+              style={{ background: "rgba(138,150,176,0.25)", color: "#4a5a78" }}>?</span>
+            <span className="flex-1 text-[14px] font-extrabold text-[#4a5a78]">그 외</span>
+            <span className="text-[12px]" style={{ color: "#8a96b0" }}>직접 구매 필요</span>
+          </div>
+          <div className="px-4 pb-3 pt-1">
+            <div className="mb-2 text-[11px]" style={{ color: "#8a96b0" }}>
+              근처 가게 데이터가 없어 경로에 포함되지 않았어요.
+            </div>
+            {uncovered.map((name) => {
+              const key    = `uncovered::${name}`;
+              const isDone = !!bought[key];
+              return (
+                <div key={key} className="flex items-center gap-2 py-2"
+                  style={{ borderTop: "1px solid rgba(26,34,51,0.05)" }}>
+                  <span>🛒</span>
+                  <span className={`flex-1 text-[13px] ${isDone ? "line-through" : ""}`}
+                    style={{ color: isDone ? "#8a96b0" : "#1a2233" }}>
+                    {name}
+                  </span>
+                  <button onClick={() => setBought((b) => ({ ...b, [key]: !b[key] }))}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-[13px] font-bold transition"
+                    style={isDone
+                      ? { background: "rgba(45,158,95,0.15)", color: "#2d9e5f", border: "1px solid rgba(45,158,95,0.30)" }
+                      : { background: "rgba(26,34,51,0.05)", color: "#8a96b0", border: "1px solid rgba(26,34,51,0.12)" }
+                    }>
+                    {isDone ? "✓" : "○"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 장보기 완료 버튼 */}
       <button
