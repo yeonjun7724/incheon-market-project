@@ -34,7 +34,6 @@ export function CartPanel() {
     // dbItems 로딩 중이면 잠시 대기 (최대 100ms)
     const run = () => {
       const missing = picked.filter((key) => {
-        if (unknownItems.includes(key)) return false; // 가격 모름 항목은 추론 스킵
         // 가격 > 0 인 DB 항목만 진짜 DB 등록으로 인정
         const inDb        = dbItems.some((i) => (i.item_key === key || i.name === key) && i.price > 0);
         const inInferred  = key in inferredRef.current;
@@ -251,7 +250,7 @@ export function CartPanel() {
             {picked.map((key) => {
               const m           = meta(key);
               const isUnknown   = unknownItems.includes(key);
-              const isInferring = !isUnknown && inferring.has(key);
+              const isInferring = inferring.has(key);
               const isAi        = m?.price_type === "AI추론" || m?.price_type === "AI추론~";
               const isRare      = m?.rare === true;
               const fav         = favItems.includes(key);
@@ -277,8 +276,7 @@ export function CartPanel() {
                       )}
                     </div>
                     <div className="text-[10px] text-[#8a96b0] mt-0.5">
-                      {isUnknown ? "가격 모름 · 제보 후 반영"
-                        : isInferring ? "가격 추론 중…"
+                      {isInferring ? "가격 추론 중…"
                         : m ? `${m.unit}${m.unit ? " · " : ""}${m.category}`
                         : "DB 미등록"}
                     </div>
@@ -293,9 +291,7 @@ export function CartPanel() {
                                  text-[#4a5a78] hover:bg-[#1a2233]/6 text-[14px] leading-none">+</button>
                   </div>
                   <div className="text-right shrink-0 min-w-[68px]">
-                    {isUnknown ? (
-                      <div className="text-[11px] text-[#8a96b0]">가격 모름</div>
-                    ) : isInferring ? (
+                    {isInferring ? (
                       <div className="text-[11px] text-[#0077b6] animate-pulse">추론 중…</div>
                     ) : m && m.price > 0 ? (
                       <div className={`text-[13px] font-bold font-mono ${isAi ? "text-[#f77f00]" : "text-[#e63946]"}`}>
@@ -303,7 +299,7 @@ export function CartPanel() {
                       </div>
                     ) : (
                       <div className="text-[11px] text-[#8a96b0]">
-                        {m?.price === 0 ? "추론 실패" : "가격없음"}
+                        {isUnknown ? "가격 모름" : m?.price === 0 ? "추론 실패" : "가격없음"}
                       </div>
                     )}
                   </div>
