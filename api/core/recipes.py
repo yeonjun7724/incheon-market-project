@@ -229,7 +229,7 @@ def _ai_infer_unit(item_key: str, base_price: int, base_unit: str) -> tuple:
             "단위는 한국어로 간결하게. price는 정수(원). "
             "JSON 형식: unit 필드와 price 필드만"
         ),
-        user=f"재료: {item_key}, DB단위: {db_unit}, DB가격: {base_price}원",
+        user=f"재료: {item_key}, DB단위: {base_unit}, DB가격: {base_price}원",
         max_tokens=60,
     )
 
