@@ -17,7 +17,7 @@ export function RoutePanel() {
     lat, lng, radiusM, picked, routePlans, routeChoice,
     setRoutePlans, setRouteChoice, setPanel, setMapboxRoute, setAllMapboxRoutes,
     budget, household, pref, useMarket,
-    travelMode, setTravelMode,
+    travelMode, setTravelMode, saveRoute,
   } = useApp();
 
   const [mbRoutes, setMbRoutes] = useState<Record<string, RouteWithMapbox | null>>({});
@@ -335,6 +335,59 @@ export function RoutePanel() {
           </button>
         );
       })}
+
+      {/* ── 경로 저장 버튼 ── */}
+      {routeChoice && (() => {
+        const p = routePlans[routeChoice];
+        const mb = mbRoutes[routeChoice];
+        return (
+          <button
+            onClick={() => {
+              const now = new Date();
+              // by_store에서 거래 내역 추출
+              const purchases = p?.stops?.map((stop: any) => {
+                const entry = p.by_store?.[stop.id];
+                const items = (entry?.items ?? []).map((it: any) => ({
+                  name: it.name,
+                  emoji: it.emoji ?? "🛒",
+                  unit: it.unit ?? "",
+                  price: it.price ?? 0,
+                  qty: it.qty ?? 1,
+                }));
+                return {
+                  id: stop.id,
+                  name: stop.name,
+                  type: stop.type,
+                  gu: stop.gu ?? "",
+                  items,
+                  subtotal: items.reduce((s: number, i: any) => s + i.price * i.qty, 0),
+                };
+              }) ?? [];
+              const grandTotal = purchases.reduce((s: number, ps: any) => s + ps.subtotal, 0);
+
+              saveRoute({
+                id: `${routeChoice}-${Date.now()}`,
+                name: `${routeChoice} · ${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`,
+                strategy: routeChoice,
+                travelMode,
+                budget: p?.budget ?? 0,
+                distKm: mb ? (mb.distance_m/1000).toFixed(1) : "0",
+                walkMin: mb ? Math.round(mb.duration_s/60) : 0,
+                totalMin: mb ? Math.round(mb.duration_s/60) + (p?.n_stops??0)*10 : 0,
+                stops: p?.stops?.map((s: any) => ({ name: s.name, type: s.type })) ?? [],
+                ingredients: picked,
+                purchases,
+                grandTotal,
+                savedAt: now.toISOString(),
+              });
+            }}
+            className="w-full rounded-2xl py-3 text-[13px] font-bold"
+            style={{ background: "rgba(26,34,51,0.06)", color: "#4a5a78", border: "1px solid rgba(26,34,51,0.10)" }}
+          >
+            ⭐ 이 경로 저장하기
+          </button>
+        );
+      })()}
 
       {/* ── 장보기 시작 버튼 ── */}
       {/* 경로 미선택 시 안내 */}

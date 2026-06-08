@@ -35,6 +35,40 @@ export interface DbItem {
   rare?: boolean;
 }
 
+export interface PurchaseItem {
+  name: string;
+  emoji: string;
+  unit: string;
+  price: number;
+  qty: number;
+}
+
+export interface PurchaseStore {
+  id: string;
+  name: string;
+  type: string;
+  gu: string;
+  items: PurchaseItem[];
+  subtotal: number;
+}
+
+export interface SavedRoute {
+  id: string;
+  name: string;
+  strategy: string;
+  travelMode: string;
+  budget: number;
+  distKm: string;
+  walkMin: number;
+  totalMin: number;
+  stops: { name: string; type: string }[];
+  ingredients: string[];
+  // 거래 내역
+  purchases: PurchaseStore[];
+  grandTotal: number;
+  savedAt: string;
+}
+
 export interface Recipe {
   query: string;
   dish: string | null;

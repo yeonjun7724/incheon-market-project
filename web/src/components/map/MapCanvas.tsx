@@ -22,6 +22,18 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
   const [tooltip, setTooltip] = useState<Tooltip | null>(null);
   const [fetchKey, setFetchKey] = useState(0);
   const mapRef = useRef<MapRef | null>(null);
+
+  // 핀 이동 확정 이벤트
+  useEffect(() => {
+    function onConfirm() {
+      const map = mapRef.current?.getMap();
+      if (!map) return;
+      const center = map.getCenter();
+      setLoc(center.lat, center.lng);
+    }
+    window.addEventListener("confirmPinLocation", onConfirm);
+    return () => window.removeEventListener("confirmPinLocation", onConfirm);
+  }, [setLoc]);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressStartRef = useRef<{ x: number; y: number } | null>(null);
   const animFrameRef = useRef<number | null>(null);
@@ -130,7 +142,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       setAnimDots([]);
     };
-  }, [plan, lat, lng]);
+  }, [plan, routeSegments, lat, lng]);
 
   // 전략별 색상 (경로 라인 + 경유지 마커)
   const STRAT_COLOR: Record<string, string> = {

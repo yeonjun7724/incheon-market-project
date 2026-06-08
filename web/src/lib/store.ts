@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { PanelKey, RoutePlans, RouteWithMapbox, Store } from "./types";
+import type { PanelKey, RoutePlans, RouteWithMapbox, Store, SavedRoute } from "./types";
 
 interface AppState {
   // 위치/지도
@@ -31,6 +31,9 @@ interface AppState {
   // 장바구니
   picked: string[];
   favItems: string[];
+  savedRoutes: SavedRoute[];
+  saveRoute: (r: SavedRoute) => void;
+  deleteSavedRoute: (id: string) => void;
   favStores: string[];
   togglePick: (n: string) => void;
   toggleFavItem: (n: string) => void;

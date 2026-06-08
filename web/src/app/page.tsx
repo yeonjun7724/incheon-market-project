@@ -222,6 +222,7 @@ function HelpModal({ onClose }: { onClose: () => void }) {
 export default function Home() {
   const { panel, setPanel, routePlans, routeChoice, setRouteChoice, setRoutePlans } = useApp();
   const [priceLayerOn, setPriceLayerOn] = useState(false);
+  const [pinMode, setPinMode] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
   const hasRoutes   = Object.keys(routePlans).length > 0;
@@ -246,9 +247,47 @@ export default function Home() {
         <MapCanvas priceLayerOn={priceLayerOn} />
         <SearchBar />
         <StoreInfoCard />
+
+        {/* 지도 중심 핀 이동 모드 */}
+        {pinMode && (
+          <>
+            {/* 중심 핀 */}
+            <div className="fixed inset-0 z-[599] pointer-events-none flex items-center justify-center">
+              <div style={{ marginTop: -24, textAlign: "center" }}>
+                <div style={{ fontSize: 32, lineHeight: 1, filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.3))" }}>📍</div>
+              </div>
+            </div>
+            {/* 하단 확정 바 */}
+            <div className="fixed bottom-0 inset-x-0 z-[600] flex gap-2 px-4 pb-safe"
+              style={{
+                paddingBottom: "calc(env(safe-area-inset-bottom, 8px) + 12px)",
+                background: "rgba(255,255,255,0.97)",
+                borderTop: "1px solid rgba(26,34,51,0.10)",
+                paddingTop: 12,
+              }}>
+              <button
+                onClick={() => setPinMode(false)}
+                className="flex-1 rounded-2xl py-3 text-[14px] font-bold"
+                style={{ background: "rgba(26,34,51,0.07)", color: "#4a5a78" }}
+              >취소</button>
+              <button
+                onClick={() => {
+                  // MapCanvas ref를 통해 지도 중심 좌표 가져오기
+                  // page에서 직접 접근 어려우니 커스텀 이벤트로
+                  window.dispatchEvent(new CustomEvent("confirmPinLocation"));
+                  setPinMode(false);
+                }}
+                className="flex-2 rounded-2xl py-3 px-8 text-[14px] font-bold text-white"
+                style={{ background: "#0077b6", flex: 2 }}
+              >📍 이 위치로 설정</button>
+            </div>
+          </>
+        )}
         <MapTools
           priceLayerOn={priceLayerOn}
           onTogglePriceLayer={() => setPriceLayerOn((v) => !v)}
+          onPinMode={() => setPinMode((v) => !v)}
+          pinMode={pinMode}
         />
         <BottomNav />
 

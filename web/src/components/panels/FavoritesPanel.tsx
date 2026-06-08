@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import { useApp } from "@/lib/store";
 import { getStores, getItems, recommendRoutes } from "@/lib/api";
-import type { Store, Item } from "@/lib/types";
+import type { Store, Item, SavedRoute } from "@/lib/types";
+import { useState as _useState } from "react";
 
 export function FavoritesPanel() {
   const {
@@ -37,8 +38,23 @@ export function FavoritesPanel() {
     setRoutePlans(plans); setRouteChoice(null); setPanel("stores");
   }
 
+  const { savedRoutes, deleteSavedRoute } = useApp();
+
   return (
     <div className="space-y-5 text-ink1">
+
+      {/* 저장된 경로 */}
+      {savedRoutes.length > 0 && (
+        <section>
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink3">🗺️ 저장된 경로</p>
+          <div className="space-y-2">
+            {savedRoutes.map((r) => (
+              <SavedRouteCard key={r.id} r={r} onDelete={() => deleteSavedRoute(r.id)} onReuse={() => { setPanel("cart"); }} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* 자주 가는 가게 */}
       <section>
         <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink3">📌 자주 가는 가게</p>
@@ -118,6 +134,100 @@ export function FavoritesPanel() {
           </>
         )}
       </section>
+    </div>
+  );
+}
+
+function SavedRouteCard({ r, onDelete, onReuse }: { r: SavedRoute; onDelete: () => void; onReuse: () => void }) {
+  const [open, setOpen] = _useState(false);
+  const date = new Date(r.savedAt);
+  const dateStr = `${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2,'0')}`;
+  const STRAT_COLOR: Record<string, string> = {
+    최저예산: "#e85d04", 최소거리: "#0077b6", 최소경유: "#2d9e5f",
+  };
+  const color = STRAT_COLOR[r.strategy] ?? "#0077b6";
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ border: `1.5px solid ${color}22`, background: "#fff" }}>
+      {/* 헤더 */}
+      <button className="w-full flex items-center gap-3 px-4 py-3 text-left"
+        style={{ background: `${color}08` }} onClick={() => setOpen(v => !v)}>
+        <div className="flex-1 min-w-0">
+          <div className="text-[13px] font-extrabold truncate" style={{ color }}>{r.name}</div>
+          <div className="text-[11px] mt-0.5 flex gap-2 flex-wrap" style={{ color: "#8a96b0" }}>
+            <span>{r.travelMode === "driving" ? "🚗" : "🚶"} {r.distKm}km · {r.totalMin}분</span>
+            <span className="font-bold" style={{ color: "#e85d04" }}>
+              총 {(r.grandTotal || r.budget).toLocaleString()}원
+            </span>
+          </div>
+        </div>
+        <span style={{ color: "#8a96b0", fontSize: 14 }}>{open ? "▲" : "▼"}</span>
+      </button>
+
+      {/* 거래 내역 상세 */}
+      {open && (
+        <div className="px-4 pb-4 space-y-3" style={{ borderTop: `1px solid ${color}15` }}>
+          <p className="text-[10px] font-bold uppercase tracking-wider pt-2" style={{ color: "#8a96b0" }}>
+            {dateStr} 장보기 기록
+          </p>
+
+          {r.purchases?.length > 0 ? r.purchases.map((ps, i) => (
+            <div key={i} className="rounded-xl overflow-hidden"
+              style={{ border: "1px solid rgba(26,34,51,0.08)" }}>
+              {/* 가게 헤더 */}
+              <div className="flex items-center justify-between px-3 py-2"
+                style={{ background: "rgba(26,34,51,0.04)" }}>
+                <div className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black text-white"
+                    style={{ background: color }}>{i+1}</span>
+                  <span className="text-[12px] font-bold text-[#1a2233]">{ps.name}</span>
+                  <span className="text-[10px]" style={{ color: "#8a96b0" }}>{ps.type}</span>
+                </div>
+                <span className="text-[12px] font-black font-mono" style={{ color }}>
+                  {ps.subtotal.toLocaleString()}원
+                </span>
+              </div>
+              {/* 품목 목록 */}
+              <div className="divide-y divide-[#1a2233]/05">
+                {ps.items.map((it, j) => (
+                  <div key={j} className="flex items-center gap-2 px-3 py-1.5">
+                    <span className="text-[14px]">{it.emoji}</span>
+                    <span className="flex-1 text-[12px] text-[#1a2233]">{it.name}</span>
+                    <span className="text-[11px]" style={{ color: "#8a96b0" }}>{it.unit}</span>
+                    <span className="text-[12px] font-bold font-mono" style={{ color: "#e85d04" }}>
+                      {it.price.toLocaleString()}원
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )) : (
+            /* 거래 내역 없는 구 버전 경로 — 경유지만 표시 */
+            <div className="flex flex-wrap gap-1">
+              {r.stops.map((s, i) => (
+                <span key={i} className="rounded-full px-2 py-0.5 text-[10px]"
+                  style={{ background: "rgba(26,34,51,0.06)", color: "#4a5a78" }}>
+                  {i+1}. {s.name}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* 액션 버튼 */}
+          <div className="flex gap-2 pt-1">
+            <button onClick={onReuse}
+              className="flex-1 rounded-xl py-2 text-[12px] font-bold"
+              style={{ background: `${color}15`, color }}>
+              🔄 이 재료로 다시 검색
+            </button>
+            <button onClick={onDelete}
+              className="rounded-xl px-3 py-2 text-[12px] font-bold"
+              style={{ background: "rgba(230,57,70,0.08)", color: "#e63946" }}>
+              삭제
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

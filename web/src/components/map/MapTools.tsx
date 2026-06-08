@@ -10,9 +10,11 @@ const INCHEON_BOUNDS: [[number, number], [number, number]] = [
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
-export function MapTools({ onTogglePriceLayer: _onTogglePriceLayer, priceLayerOn: _priceLayerOn }: {
+export function MapTools({ onTogglePriceLayer: _onTogglePriceLayer, priceLayerOn: _priceLayerOn, onPinMode, pinMode }: {
   onTogglePriceLayer: () => void;
   priceLayerOn: boolean;
+  onPinMode: () => void;
+  pinMode: boolean;
 }) {
   const { main } = useMap();
   const { setLoc, setPanel } = useApp();
@@ -61,6 +63,7 @@ export function MapTools({ onTogglePriceLayer: _onTogglePriceLayer, priceLayerOn
 
   const TOOLS = [
     { icon: "◎",  label: "현위치",       onClick: goMyLocation },
+    { icon: pinMode ? "✕" : "📌", label: pinMode ? "핀 취소" : "위치 이동", onClick: onPinMode },
     { icon: "⭐", label: "즐겨찾기",      onClick: () => setPanel("favorites") },
     { icon: "⛶",  label: "인천 전체보기", onClick: fitIncheon },
   ];
