@@ -13,6 +13,12 @@ import scheduler as sched
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    try:
+        from core.db import get_engine, ensure_postgis
+        ensure_postgis(get_engine())
+    except Exception as e:
+        import logging
+        logging.getLogger("localcart").warning(f"DB init skipped: {e}")
     sched.start()
     yield
     sched.stop()
