@@ -102,47 +102,6 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
   const plan = routeChoice ? routePlans[routeChoice] : null;
 
   // 경로 이동 애니메이션 — 각 구간 위를 점이 흘러가는 효과
-  const [animDots, setAnimDots] = useState<{ id: number; lng: number; lat: number; color: string }[]>([]);
-
-  useEffect(() => {
-    if (!plan) {
-      setAnimDots([]);
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      return;
-    }
-    // routeSegments가 실제 경로 좌표 배열을 가짐 — 그 위를 따라 이동
-    const SPEED = 0.0008;
-    // 구간마다 위상 다르게
-    const phases = routeSegments.map((_, i) => i / Math.max(routeSegments.length, 1));
-
-    function animate() {
-      const dots = routeSegments.map((seg, i) => {
-        phases[i] = (phases[i] + SPEED) % 1;
-        const t = phases[i];
-        const coords = seg.coords as [number, number][];
-        // 전체 coords 중 t 비율 위치 보간
-        const totalSeg = coords.length - 1;
-        const pos = t * totalSeg;
-        const idx = Math.min(Math.floor(pos), totalSeg - 1);
-        const frac = pos - idx;
-        const [x0, y0] = coords[idx];
-        const [x1, y1] = coords[Math.min(idx + 1, totalSeg)];
-        return {
-          id: i,
-          lng: x0 + (x1 - x0) * frac,
-          lat: y0 + (y1 - y0) * frac,
-          color: seg.color,
-        };
-      });
-      setAnimDots(dots);
-      animFrameRef.current = requestAnimationFrame(animate);
-    }
-    animFrameRef.current = requestAnimationFrame(animate);
-    return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      setAnimDots([]);
-    };
-  }, [plan, routeSegments, lat, lng]);
 
   // 전략별 색상 (경로 라인 + 경유지 마커)
   const STRAT_COLOR: Record<string, string> = {
@@ -196,6 +155,48 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
     }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan, routeChoice, allMapboxRoutes, lat, lng, travelMode]);
+
+  const [animDots, setAnimDots] = useState<{ id: number; lng: number; lat: number; color: string }[]>([]);
+
+  useEffect(() => {
+    if (!plan) {
+      setAnimDots([]);
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      return;
+    }
+    // routeSegments가 실제 경로 좌표 배열을 가짐 — 그 위를 따라 이동
+    const SPEED = 0.0008;
+    // 구간마다 위상 다르게
+    const phases = routeSegments.map((_, i) => i / Math.max(routeSegments.length, 1));
+
+    function animate() {
+      const dots = routeSegments.map((seg, i) => {
+        phases[i] = (phases[i] + SPEED) % 1;
+        const t = phases[i];
+        const coords = seg.coords as [number, number][];
+        // 전체 coords 중 t 비율 위치 보간
+        const totalSeg = coords.length - 1;
+        const pos = t * totalSeg;
+        const idx = Math.min(Math.floor(pos), totalSeg - 1);
+        const frac = pos - idx;
+        const [x0, y0] = coords[idx];
+        const [x1, y1] = coords[Math.min(idx + 1, totalSeg)];
+        return {
+          id: i,
+          lng: x0 + (x1 - x0) * frac,
+          lat: y0 + (y1 - y0) * frac,
+          color: seg.color,
+        };
+      });
+      setAnimDots(dots);
+      animFrameRef.current = requestAnimationFrame(animate);
+    }
+    animFrameRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      setAnimDots([]);
+    };
+  }, [plan, routeSegments, lat, lng]);
 
   // 미선택 경로들 — Mapbox 실제 geometry 우선, 없으면 직선
   const unselectedRoutes = useMemo(() => {
