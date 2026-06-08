@@ -96,25 +96,19 @@ def load_items() -> pd.DataFrame:
         engine = get_engine()
         with engine.connect() as conn:
             df = pd.read_sql(text("""
-                SELECT DISTINCT ON (dp.item_key)
-                    dp.item_key,
-                    dp.gds_lclsf_nm AS category,
-                    COALESCE(pr.price, dp.소매가) AS 소매가,
-                    dp.kamis_unit,
-                    dp.중앙값,
-                    dp.최저가,
-                    dp.최고가
-                FROM daily_prices dp
-                LEFT JOIN (
-                    SELECT DISTINCT ON (item_key)
-                        item_key, price
-                    FROM price_reports
-                    ORDER BY item_key, reported_at DESC
-                ) pr ON pr.item_key = dp.item_key
-                WHERE dp.item_key IS NOT NULL AND dp.item_key != ''
-                ORDER BY dp.item_key,
-                    CASE WHEN dp.소매가 IS NOT NULL THEN 0 ELSE 1 END,
-                    dp.소매가 ASC NULLS LAST
+                SELECT DISTINCT ON (item_key)
+                    item_key,
+                    gds_lclsf_nm AS category,
+                    소매가,
+                    kamis_unit,
+                    중앙값,
+                    최저가,
+                    최고가
+                FROM daily_prices
+                WHERE item_key IS NOT NULL AND item_key != ''
+                ORDER BY item_key,
+                    CASE WHEN 소매가 IS NOT NULL THEN 0 ELSE 1 END,
+                    소매가 ASC NULLS LAST
             """), conn)
     except Exception:
         return pd.DataFrame(columns=[
@@ -163,6 +157,28 @@ def load_items() -> pd.DataFrame:
     df["emoji"]    = df["item_key"].map(EMOJI_MAP).fillna("🛒")
     df["code"]     = df["item_key"]
     df["name"]     = df["item_key"]
+
+    # price_reports 제보 우선 적용 (테이블 없으면 조용히 스킵)
+    try:
+        from core.db import get_engine
+        from sqlalchemy import text
+        with get_engine().connect() as conn:
+            reports = pd.read_sql(text("""
+                SELECT DISTINCT ON (item_key)
+                    item_key, price AS reported_price
+                FROM price_reports
+                ORDER BY item_key, reported_at DESC
+            """), conn)
+        if not reports.empty:
+            report_map = dict(zip(reports["item_key"], reports["reported_price"].astype(int)))
+            for item_key, rep_price in report_map.items():
+                mask = df["name"] == item_key
+                if mask.any():
+                    df.loc[mask, "avg_price"]         = rep_price
+                    df.loc[mask, "market_price"]      = int(rep_price * 0.92)
+                    df.loc[mask, "supermarket_price"] = int(rep_price * 1.08)
+    except Exception:
+        pass
 
     return df[["code", "name", "category", "unit", "emoji",
                "avg_price", "market_price", "supermarket_price"]]
