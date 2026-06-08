@@ -211,7 +211,7 @@ export function ReportPanel() {
             실제 산 가격을 제보해 주세요
           </p>
           <ManualForm
-            items={items} lat={lat} lng={lng}
+            items={items} stores={stores} lat={lat} lng={lng}
             mItem={mItem} setMItem={setMItem}
             mPrice={mPrice} setMPrice={setMPrice}
             mStore={mStore} setMStore={setMStore}
