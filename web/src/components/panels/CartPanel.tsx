@@ -111,6 +111,7 @@ export function CartPanel() {
       const plans = await recommendRoutes({
         ingredients: picked, lat, lng, radius: radiusM,
         budget, household, pref, use_market: useMarket,
+        quantities: Object.fromEntries(picked.map((k) => [k, qty(k)])),
       });
       if (!plans || Object.keys(plans).length === 0) {
         // 주변에서 구할 수 없는 재료 안내

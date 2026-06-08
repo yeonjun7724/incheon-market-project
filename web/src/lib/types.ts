@@ -95,7 +95,7 @@ export interface RoutePlan {
   stops: RouteStop[];
   by_store: Record<string, {
     store: RouteStop;
-    items: Array<{ name: string; price: number; emoji: string; unit: string }>;
+    items: Array<{ name: string; price: number; emoji: string; unit: string; qty?: number }>;
   }>;
   budget: number;
   distance_m: number;

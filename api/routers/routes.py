@@ -19,6 +19,7 @@ class RouteReq(BaseModel):
     household: int = 1
     pref: str = "균형"
     use_market: bool = True
+    quantities: dict[str, int] = {}
 
 
 def _store_row(sr) -> dict:
@@ -46,12 +47,14 @@ def _store_row(sr) -> dict:
 def _serialize(plan: dict) -> dict:
     if not plan:
         return {}
+    qmap = plan.get("quantities", {}) or {}
     stops = [_store_row(s) for s in plan["stops"]]
     by_store = {
         sid: {
             "store": _store_row(v["row"]),
             "items": [
-                {"name": n, "price": int(p), "emoji": e, "unit": u}
+                {"name": n, "price": int(p), "emoji": e, "unit": u,
+                 "qty": int(qmap.get(n, 1))}
                 for (n, p, e, u) in v["items"]
             ],
         }
@@ -78,6 +81,7 @@ def recommend(req: RouteReq):
             household=req.household,
             pref=req.pref,
             use_market=req.use_market,
+            quantities=req.quantities,
         )
         return {strategy: _serialize(plan) for strategy, plan in plans.items()}
     except Exception as e:

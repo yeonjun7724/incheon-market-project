@@ -574,11 +574,13 @@ def _assign_items(ingredients: list[str], items_df: pd.DataFrame,
 
 
 def _build_plan_greedy(ingredients: list[str], store_assignments: dict,
-                       origin: tuple[float, float]) -> dict | None:
+                       origin: tuple[float, float],
+                       quantities: dict | None = None) -> dict | None:
     """최소경유 전용: 한 가게에서 최대한 많은 재료를 구매. 경유지 수를 최소화."""
     if not store_assignments:
         return None
 
+    q = quantities or {}
     remaining = set(ingredients)
     stops, by_store = [], {}
     total_budget = 0
@@ -592,7 +594,7 @@ def _build_plan_greedy(ingredients: list[str], store_assignments: dict,
             continue
         stops.append(info["row"])
         by_store[sid] = {"row": info["row"], "items": buyable}
-        total_budget += sum(p for _, p, _, _ in buyable)
+        total_budget += sum(it[1] * q.get(it[0], 1) for it in buyable)
         remaining -= {i[0] for i in buyable}
 
     if not stops:
@@ -620,9 +622,11 @@ def _build_plan_greedy(ingredients: list[str], store_assignments: dict,
 
 
 def _build_plan(ingredients: list[str], store_assignments: dict,
-                origin: tuple[float, float]) -> dict | None:
+                origin: tuple[float, float],
+                quantities: dict | None = None) -> dict | None:
     if not store_assignments:
         return None
+    q = quantities or {}
     covered: set[str] = set()
     stops, by_store = [], {}
     total_budget = 0
@@ -633,7 +637,7 @@ def _build_plan(ingredients: list[str], store_assignments: dict,
             continue
         stops.append(info["row"])
         by_store[sid] = {"row": info["row"], "items": new_ings}
-        total_budget += sum(p for _, p, _, _ in new_ings)
+        total_budget += sum(it[1] * q.get(it[0], 1) for it in new_ings)
         covered.update(i[0] for i in new_ings)
 
     if not stops:
@@ -673,8 +677,10 @@ def recommend_routes(ingredients: list[str], items_df: pd.DataFrame,
                      budget: int = 0,
                      household: int = 1,
                      pref: str = "균형",
-                     use_market: bool = True) -> dict[str, dict]:
+                     use_market: bool = True,
+                     quantities: dict | None = None) -> dict[str, dict]:
     """3전략 경로 반환. ingredients는 DB item_key 기준."""
+    qmap = quantities or {}
     # 채식 선호 시 육류 재료 제외
     if pref == "채식":
         ingredients = [i for i in ingredients if i not in _MEAT_KEYS]
@@ -709,10 +715,11 @@ def recommend_routes(ingredients: list[str], items_df: pd.DataFrame,
         budget_sort_key = lambda kv: -_TYPE_FACTOR.get(kv[1]["row"]["type"], 1.0)
 
     budget_sorted = dict(sorted(assignments.items(), key=budget_sort_key))
-    p = _build_plan(ingredients, budget_sorted, origin)
+    p = _build_plan(ingredients, budget_sorted, origin, qmap)
     if p:
         p["budget"] = round(p["budget"] * hh_scale)
         p["household"] = household
+        p["quantities"] = qmap
         # budget 조건: 초과 여부 표시
         if budget > 0:
             p["over_budget"] = p["budget"] > budget
@@ -724,10 +731,11 @@ def recommend_routes(ingredients: list[str], items_df: pd.DataFrame,
         key=lambda kv: _haversine(origin[0], origin[1],
                                   float(kv[1]["row"]["lat"]), float(kv[1]["row"]["lng"]))
     ))
-    p = _build_plan(ingredients, dist_sorted, origin)
+    p = _build_plan(ingredients, dist_sorted, origin, qmap)
     if p:
         p["budget"] = round(p["budget"] * hh_scale)
         p["household"] = household
+        p["quantities"] = qmap
         if budget > 0:
             p["over_budget"] = p["budget"] > budget
         strategies["최소거리"] = p
@@ -742,10 +750,11 @@ def recommend_routes(ingredients: list[str], items_df: pd.DataFrame,
                        float(kv[1]["row"]["lat"]), float(kv[1]["row"]["lng"]))
         )
     ))
-    p = _build_plan_greedy(ingredients, cov_sorted, origin)
+    p = _build_plan_greedy(ingredients, cov_sorted, origin, qmap)
     if p:
         p["budget"] = round(p["budget"] * hh_scale)
         p["household"] = household
+        p["quantities"] = qmap
         if budget > 0:
             p["over_budget"] = p["budget"] > budget
         strategies["최소경유"] = p
