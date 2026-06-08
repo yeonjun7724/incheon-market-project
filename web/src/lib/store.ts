@@ -92,6 +92,9 @@ export const useApp = create<AppState>((set) => ({
 
   picked: [],
   favItems: [],
+  savedRoutes: [],
+  saveRoute: (r) => set((s) => ({ savedRoutes: [r, ...s.savedRoutes.slice(0, 19)] })),
+  deleteSavedRoute: (id) => set((s) => ({ savedRoutes: s.savedRoutes.filter((r) => r.id !== id) })),
   favStores: [],
   togglePick: (n) => set((s) => ({
     picked: s.picked.includes(n) ? s.picked.filter((x) => x !== n) : [...s.picked, n],
