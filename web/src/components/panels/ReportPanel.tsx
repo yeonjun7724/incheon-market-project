@@ -1,13 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useApp } from "@/lib/store";
-import { getReports, addReport, getItems } from "@/lib/api";
-import type { Report, Item } from "@/lib/types";
+import { getReports, addReport, getItems, getStores } from "@/lib/api";
+import type { Report, Item, Store } from "@/lib/types";
 
 export function ReportPanel() {
   const { lat, lng, routePlans, routeChoice, setPanel, clearCart } = useApp();
   const [reports, setReports]   = useState<Report[]>([]);
   const [items, setItems]       = useState<Item[]>([]);
+  const [stores, setStores]     = useState<Store[]>([]);
   const [saving, setSaving]     = useState<string | null>(null); // 저장 중인 item key
   const [saved, setSaved]       = useState<Set<string>>(new Set());
   const [manualMode, setManualMode] = useState(false);
@@ -15,17 +16,19 @@ export function ReportPanel() {
   const [mItem, setMItem]   = useState("");
   const [mPrice, setMPrice] = useState("");
   const [mStore, setMStore] = useState("");
+  const [mUnit, setMUnit]   = useState("");
   const [mSaving, setMSaving] = useState(false);
   const [toast, setToast] = useState(false);
 
   useEffect(() => {
     getReports().then(setReports).catch(console.error);
     getItems().then(setItems).catch(console.error);
-  }, []);
+    getStores(lat, lng, 5000).then(setStores).catch(console.error);
+  }, [lat, lng]);
 
   // 선택된 경로의 구입 목록 추출
   const plan = routeChoice ? routePlans[routeChoice] : null;
-  const purchaseList: { item: string; price: number; store: string; emoji: string; key: string }[] = [];
+  const purchaseList: { item: string; price: number; store: string; unit: string; emoji: string; key: string }[] = [];
 
   if (plan?.by_store) {
     Object.values(plan.by_store).forEach((storeData: any) => {
@@ -36,6 +39,7 @@ export function ReportPanel() {
           item:  it.name,
           price: it.price,
           store: storeName,
+          unit:  it.unit ?? "",
           emoji: it.emoji ?? "🛒",
           key,
         });
@@ -47,7 +51,7 @@ export function ReportPanel() {
     if (saving === entry.key) return;
     setSaving(entry.key);
     try {
-      await addReport({ item: entry.item, price: entry.price, store: entry.store, lat, lng });
+      await addReport({ item: entry.item, price: entry.price, store: entry.store, unit: entry.unit, lat, lng });
       setSaved((prev) => {
         const next = new Set([...prev, entry.key]);
         // 모든 항목 제보 완료 시 자동 닫기
@@ -68,9 +72,9 @@ export function ReportPanel() {
     if (!mItem || !mPrice) return;
     setMSaving(true);
     try {
-      await addReport({ item: mItem, price: Number(mPrice), store: mStore, lat, lng });
+      await addReport({ item: mItem, price: Number(mPrice), store: mStore, unit: mUnit, lat, lng });
       setReports(await getReports());
-      setMItem(""); setMPrice(""); setMStore("");
+      setMItem(""); setMPrice(""); setMStore(""); setMUnit("");
       setToast(true);
       setTimeout(() => setToast(false), 2000);
     } finally { setMSaving(false); }
@@ -81,7 +85,7 @@ export function ReportPanel() {
     setSaved(new Set());
     setSaving(null);
     setManualMode(false);
-    setMItem(""); setMPrice(""); setMStore("");
+    setMItem(""); setMPrice(""); setMStore(""); setMUnit("");
     setToast(false);
   }
 
@@ -191,10 +195,11 @@ export function ReportPanel() {
             </div>
           ) : (
             <ManualForm
-              items={items} lat={lat} lng={lng}
+              items={items} stores={stores} lat={lat} lng={lng}
               mItem={mItem} setMItem={setMItem}
               mPrice={mPrice} setMPrice={setMPrice}
               mStore={mStore} setMStore={setMStore}
+              mUnit={mUnit} setMUnit={setMUnit}
               mSaving={mSaving} onSubmit={submitManual}
             />
           )}
@@ -210,6 +215,7 @@ export function ReportPanel() {
             mItem={mItem} setMItem={setMItem}
             mPrice={mPrice} setMPrice={setMPrice}
             mStore={mStore} setMStore={setMStore}
+            mUnit={mUnit} setMUnit={setMUnit}
             mSaving={mSaving} onSubmit={submitManual}
           />
         </div>
@@ -231,8 +237,11 @@ export function ReportPanel() {
                     {r.store || "위치 미상"}{r.date ? ` · ${r.date}` : ""}
                   </div>
                 </div>
-                <div className="font-mono text-[15px] font-bold" style={{ color: "#f77f00" }}>
-                  {r.price.toLocaleString()}원
+                <div className="text-right">
+                  <div className="font-mono text-[15px] font-bold" style={{ color: "#f77f00" }}>
+                    {r.price.toLocaleString()}원
+                  </div>
+                  {r.unit && <div className="text-[11px]" style={{ color: "#8a96b0" }}>{r.unit}</div>}
                 </div>
               </div>
             ))}
@@ -243,11 +252,12 @@ export function ReportPanel() {
   );
 }
 
-function ManualForm({ items, lat, lng, mItem, setMItem, mPrice, setMPrice, mStore, setMStore, mSaving, onSubmit }: {
-  items: Item[]; lat: number; lng: number;
+function ManualForm({ items, stores, lat, lng, mItem, setMItem, mPrice, setMPrice, mStore, setMStore, mUnit, setMUnit, mSaving, onSubmit }: {
+  items: Item[]; stores: Store[]; lat: number; lng: number;
   mItem: string; setMItem: (v: string) => void;
   mPrice: string; setMPrice: (v: string) => void;
   mStore: string; setMStore: (v: string) => void;
+  mUnit: string; setMUnit: (v: string) => void;
   mSaving: boolean; onSubmit: () => void;
 }) {
   return (
@@ -263,13 +273,23 @@ function ManualForm({ items, lat, lng, mItem, setMItem, mPrice, setMPrice, mStor
       <datalist id="report-item-autocomplete">
         {items.map((i) => <option key={i.code} value={i.name} />)}
       </datalist>
-      <input value={mPrice} onChange={(e) => setMPrice(e.target.value.replace(/[^0-9]/g, ""))}
-        inputMode="numeric" placeholder="가격 (원)"
+      <div className="flex gap-2">
+        <input value={mPrice} onChange={(e) => setMPrice(e.target.value.replace(/[^0-9]/g, ""))}
+          inputMode="numeric" placeholder="가격 (원)"
+          className="flex-1 rounded-xl px-3 py-2.5 text-[13px] outline-none"
+          style={{ border: "1px solid rgba(26,34,51,0.12)", background: "rgba(26,34,51,0.02)", color: "#1a2233" }} />
+        <input value={mUnit} onChange={(e) => setMUnit(e.target.value)}
+          placeholder="중량 (선택)"
+          className="w-28 rounded-xl px-3 py-2.5 text-[13px] outline-none"
+          style={{ border: "1px solid rgba(26,34,51,0.12)", background: "rgba(26,34,51,0.02)", color: "#1a2233" }} />
+      </div>
+      <input value={mStore} onChange={(e) => setMStore(e.target.value)}
+        list="report-store-autocomplete" placeholder="상점명 (선택, 자동완성)"
         className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
         style={{ border: "1px solid rgba(26,34,51,0.12)", background: "rgba(26,34,51,0.02)", color: "#1a2233" }} />
-      <input value={mStore} onChange={(e) => setMStore(e.target.value)} placeholder="상점명 (선택)"
-        className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
-        style={{ border: "1px solid rgba(26,34,51,0.12)", background: "rgba(26,34,51,0.02)", color: "#1a2233" }} />
+      <datalist id="report-store-autocomplete">
+        {stores.map((s) => <option key={s.id} value={s.name} />)}
+      </datalist>
       <button onClick={onSubmit} disabled={mSaving || !mItem || !mPrice}
         className="w-full rounded-xl py-3 text-[13px] font-bold disabled:opacity-40"
         style={{ background: "rgba(0,119,182,0.12)", color: "#0077b6", border: "1px solid rgba(0,119,182,0.25)" }}>

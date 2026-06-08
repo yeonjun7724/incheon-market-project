@@ -36,4 +36,17 @@ def ensure_postgis(engine):
                 updated_at      TIMESTAMP DEFAULT NOW()
             )
         """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS price_reports (
+                id          SERIAL PRIMARY KEY,
+                item_key    TEXT NOT NULL,
+                store       TEXT NOT NULL DEFAULT '',
+                price       INTEGER NOT NULL,
+                unit        TEXT,
+                lat         REAL,
+                lng         REAL,
+                reported_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE (item_key, store)
+            )
+        """))
         conn.commit()

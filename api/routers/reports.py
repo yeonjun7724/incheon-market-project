@@ -10,6 +10,7 @@ class ReportIn(BaseModel):
     item: str
     price: int
     store: str = ""
+    unit: str = ""
     lat: float
     lng: float
 
@@ -21,7 +22,7 @@ def list_reports():
 
 @router.post("")
 def add_report(r: ReportIn):
-    return report_db.add_report(r.item, r.price, r.store, r.lat, r.lng)
+    return report_db.add_report(r.item, r.price, r.store, r.lat, r.lng, r.unit)
 
 
 @router.get("/backend")

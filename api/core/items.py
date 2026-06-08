@@ -96,19 +96,25 @@ def load_items() -> pd.DataFrame:
         engine = get_engine()
         with engine.connect() as conn:
             df = pd.read_sql(text("""
-                SELECT DISTINCT ON (item_key)
-                    item_key,
-                    gds_lclsf_nm AS category,
-                    소매가,
-                    kamis_unit,
-                    중앙값,
-                    최저가,
-                    최고가
-                FROM daily_prices
-                WHERE item_key IS NOT NULL AND item_key != ''
-                ORDER BY item_key,
-                    CASE WHEN 소매가 IS NOT NULL THEN 0 ELSE 1 END,
-                    소매가 ASC NULLS LAST
+                SELECT DISTINCT ON (dp.item_key)
+                    dp.item_key,
+                    dp.gds_lclsf_nm AS category,
+                    COALESCE(pr.price, dp.소매가) AS 소매가,
+                    dp.kamis_unit,
+                    dp.중앙값,
+                    dp.최저가,
+                    dp.최고가
+                FROM daily_prices dp
+                LEFT JOIN (
+                    SELECT DISTINCT ON (item_key)
+                        item_key, price
+                    FROM price_reports
+                    ORDER BY item_key, reported_at DESC
+                ) pr ON pr.item_key = dp.item_key
+                WHERE dp.item_key IS NOT NULL AND dp.item_key != ''
+                ORDER BY dp.item_key,
+                    CASE WHEN dp.소매가 IS NOT NULL THEN 0 ELSE 1 END,
+                    dp.소매가 ASC NULLS LAST
             """), conn)
     except Exception:
         return pd.DataFrame(columns=[

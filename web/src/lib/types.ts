@@ -105,7 +105,7 @@ export interface RoutePlan {
 export type RoutePlans = Record<string, RoutePlan>;
 
 export interface Report {
-  item: string; price: number; store: string; lat: number; lng: number; date?: string;
+  item: string; price: number; store: string; unit?: string; lat: number; lng: number; date?: string;
 }
 
 export type PanelKey =
