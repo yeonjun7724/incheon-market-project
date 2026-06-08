@@ -146,7 +146,9 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
   // 선택된 경로를 구간별로 분리 — Mapbox geometry를 경유지 기준으로 쪼갬
   const routeSegments = useMemo(() => {
     if (!plan) return [];
+    // travelMode 변경 중 (재계산 전)엔 세그먼트 비움
     const mb = routeChoice ? allMapboxRoutes[routeChoice] : null;
+    if (routeChoice && !mb) return [];  // Mapbox 경로 없으면 대기
 
     if (mb?.geometry?.coordinates?.length) {
       // Mapbox 실제 경로: 경유지 좌표와 가장 가까운 점으로 구간 분리
@@ -181,7 +183,7 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
       coords: [pt, points[i + 1]] as [number, number][],
     }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plan, routeChoice, allMapboxRoutes, lat, lng]);
+  }, [plan, routeChoice, allMapboxRoutes, lat, lng, travelMode]);
 
   // 미선택 경로들 — Mapbox 실제 geometry 우선, 없으면 직선
   const unselectedRoutes = useMemo(() => {

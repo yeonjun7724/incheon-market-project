@@ -5,7 +5,7 @@ import { getReports, addReport, getItems } from "@/lib/api";
 import type { Report, Item } from "@/lib/types";
 
 export function ReportPanel() {
-  const { lat, lng, routePlans, routeChoice } = useApp();
+  const { lat, lng, routePlans, routeChoice, setPanel, clearCart } = useApp();
   const [reports, setReports]   = useState<Report[]>([]);
   const [items, setItems]       = useState<Item[]>([]);
   const [saving, setSaving]     = useState<string | null>(null); // 저장 중인 item key
@@ -47,7 +47,14 @@ export function ReportPanel() {
     setSaving(entry.key);
     try {
       await addReport({ item: entry.item, price: entry.price, store: entry.store, lat, lng });
-      setSaved((prev) => new Set([...prev, entry.key]));
+      setSaved((prev) => {
+        const next = new Set([...prev, entry.key]);
+        // 모든 항목 제보 완료 시 자동 닫기
+        if (next.size >= purchaseList.length) {
+          setTimeout(() => { clearCart(); setPanel(null); }, 800);
+        }
+        return next;
+      });
       setReports(await getReports());
     } catch (e) {
       console.error(e);
@@ -131,7 +138,12 @@ export function ReportPanel() {
               {/* 전체 한번에 제보 */}
               {purchaseList.some((e) => !saved.has(e.key)) && (
                 <button
-                  onClick={() => purchaseList.filter((e) => !saved.has(e.key)).forEach(reportItem)}
+                  onClick={async () => {
+                    const targets = purchaseList.filter((e) => !saved.has(e.key));
+                    await Promise.all(targets.map(reportItem));
+                    // 모두 완료 후 패널 닫기
+                    setTimeout(() => { clearCart(); setPanel(null); }, 600);
+                  }}
                   className="w-full rounded-2xl py-3 text-[13px] font-bold"
                   style={{ background: "#0077b6", color: "#fff" }}
                 >
