@@ -321,10 +321,10 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
           const map = e.target;
           // 업종별 SVG 마커 이미지 등록
           const MARKER_DEFS = [
-            { id: "marker-market",   color: "#e63946", symbol: "M" },  // 전통시장
-            { id: "marker-alley",    color: "#e63946", symbol: "G" },  // 골목상권
-            { id: "marker-local",    color: "#e63946", symbol: "N" },  // 동네식품점
-            { id: "marker-mart",     color: "#e63946", symbol: "S" },  // 대형유통
+            { id: "marker-market",   color: "#0077b6", symbol: "M" },  // 전통시장
+            { id: "marker-alley",    color: "#f77f00", symbol: "G" },  // 골목상권
+            { id: "marker-local",    color: "#7b2d8b", symbol: "N" },  // 동네식품점
+            { id: "marker-mart",     color: "#2d9e5f", symbol: "S" },  // 대형유통
           ];
           MARKER_DEFS.forEach(({ id, color, symbol }) => {
             if (map.hasImage(id)) return;
