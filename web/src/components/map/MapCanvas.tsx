@@ -365,10 +365,10 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
           {/* 헤일로 링 */}
           <Layer id="cluster-ring" type="circle" filter={!routeChoice ? ["has", "point_count"] : ["==", "id", ""]}
             paint={{
-              "circle-color": "rgba(193,18,31,0.22)",
+              "circle-color": "rgba(0,119,182,0.22)",
               "circle-radius": ["step", ["get", "point_count"], 30, 10, 39, 30, 50],
               "circle-stroke-width": 1,
-              "circle-stroke-color": "rgba(193,18,31,0.45)",
+              "circle-stroke-color": "rgba(0,119,182,0.45)",
             }}
           />
           {/* 채움 원 — 개수에 따라 밝은→진한 블루 */}
@@ -376,10 +376,10 @@ export default function MapCanvas({ priceLayerOn }: { priceLayerOn: boolean }) {
             paint={{
               "circle-color": [
                 "step", ["get", "point_count"],
-                "#e85d5d", 5,
-                "#c1121f", 10,
-                "#6a040f", 30,
-                "#6a040f",
+                "#0096c7", 5,
+                "#0077b6", 10,
+                "#03045e", 30,
+                "#03045e",
               ],
               "circle-radius": ["step", ["get", "point_count"], 20, 5, 26, 10, 32, 30, 40],
               "circle-stroke-width": 3,
